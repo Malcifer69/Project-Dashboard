@@ -1342,6 +1342,26 @@ img, video, canvas, svg { max-width: 100%; }
   .themeBtn .themeBtnLabel { display: none; }
   .themeBtn { padding: 6px; }
 }
+
+/* Live lift ticker — nasdaq-style scrolling strip of real PRs from logged sets */
+.ltHost { margin: 0 0 16px; }
+.lt { display:flex; align-items:stretch; background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px; overflow:hidden; }
+.lt-badge { display:inline-flex; align-items:center; gap:7px; flex-shrink:0; padding:0 14px; font-family: var(--font-mono, ui-monospace, monospace); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color: var(--good); border-right:1px solid var(--border); background: rgba(var(--good-rgb,70,224,168),.06); }
+.lt-dot { width:6px; height:6px; border-radius:50%; background: var(--good); box-shadow:0 0 8px var(--good); animation: ltPulse 1.6s ease-in-out infinite; }
+@keyframes ltPulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+.lt-vp { flex:1; overflow:hidden; position:relative; min-width:0; -webkit-mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent); mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent); }
+.lt-track { display:inline-flex; align-items:center; gap:28px; padding:10px 16px; white-space:nowrap; animation: ltScroll 30s linear infinite; will-change:transform; }
+@keyframes ltScroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.lt:hover .lt-track { animation-play-state: paused; }
+.lt-item { display:inline-flex; align-items:center; gap:7px; font-size:13px; font-variant-numeric:tabular-nums; }
+.lt-arrow { font-weight:700; }
+.lt-up .lt-arrow { color: var(--good); }
+.lt-down .lt-arrow { color: var(--warn); }
+.lt-name { font-weight:600; color: var(--fg); }
+.lt-sep { color: var(--muted, rgba(243,242,248,.5)); opacity:.6; }
+.lt-body { color: var(--muted-strong, rgba(243,242,248,.74)); }
+.lt-body strong { color: var(--fg); font-weight:700; }
+@media (prefers-reduced-motion: reduce) { .lt-track, .lt-dot { animation: none; } }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -1354,164 +1374,6 @@ img, video, canvas, svg { max-width: 100%; }
     <span class="po-day-split" id="dayPillSplit">—</span>
   </button>
 
-  <!-- WEIGHT + PROGRESS PHOTOS -->
-  <div class="wt-section">
-    <div class="wt-divider"><span>WEIGHT</span></div>
-
-    <div class="wt-card">
-      <div class="wt-row">
-        <span class="wt-num" id="wtNum">—</span>
-        <span class="wt-unit" id="wtUnit">kg</span>
-      </div>
-      <div class="wt-delta hidden" id="wtDelta"></div>
-      <div class="wt-streak hidden" id="wtStreak">🔥<span id="wtStreakNum">0 day streak</span></div>
-
-      <div class="wt-empty" id="wtEmpty">Log your first weight to start tracking.</div>
-
-      <div class="wt-chart-wrap hidden" id="wtChartWrap">
-        <div class="wt-chart-yaxis">
-          <span id="wtYAxisMax">—</span>
-          <span id="wtYAxisMin">—</span>
-        </div>
-        <svg class="wt-chart" viewBox="0 0 320 130" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="wtFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="var(--good)" stop-opacity="0.25"/>
-              <stop offset="100%" stop-color="var(--good)" stop-opacity="0"/>
-            </linearGradient>
-            <filter id="wtGlow"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          </defs>
-          <line class="wt-grid" x1="0" y1="20" x2="320" y2="20"></line>
-          <line class="wt-grid" x1="0" y1="65" x2="320" y2="65"></line>
-          <line class="wt-grid" x1="0" y1="110" x2="320" y2="110"></line>
-          <g id="wtChartContent"></g>
-        </svg>
-        <div class="wt-meta" id="wtMeta">0 entries</div>
-      </div>
-
-      <div class="wt-legend hidden" id="wtLegend">
-        <span class="wt-legend-item"><span class="wt-legend-dot"></span>DAILY</span>
-        <span class="wt-legend-item"><span class="wt-legend-dot wt-legend-dot-avg"></span>7-DAY AVG</span>
-      </div>
-
-      <!-- Composition estimate — uses strength trend + weight trend to guess
-           how much of recent weight change was muscle vs fat. -->
-      <div class="wt-comp hidden" id="wtComp">
-        <div class="wt-comp-h">
-          <span class="wt-comp-label">Composition estimate</span>
-          <span class="wt-comp-window" id="wtCompWindow">last 30d</span>
-        </div>
-        <div class="wt-comp-headline" id="wtCompHeadline">—</div>
-        <div class="wt-comp-bars" id="wtCompBars"></div>
-        <div class="wt-comp-foot" id="wtCompFoot">—</div>
-      </div>
-
-      <div class="wt-locked hidden" id="wtLocked">
-        <div class="wt-locked-info">
-          <span class="wt-locked-check">✓</span>
-          <div>
-            <div class="wt-locked-label">LOGGED TODAY</div>
-            <div class="wt-locked-value" id="wtLockedValue">— kg</div>
-          </div>
-        </div>
-        <button class="wt-edit-btn" id="wtEditBtn">Edit</button>
-      </div>
-
-      <div class="wt-input-row" id="wtInputRow">
-        <div class="wt-input-top">
-          <input type="number" step="0.1" class="wt-input" id="wtInput" placeholder="Enter weight" inputmode="decimal" aria-label="Today's weight">
-          <span class="wt-unit-static" id="wtUnitStatic">kg</span>
-          <button class="wt-save-btn" id="wtSaveBtn">Save</button>
-        </div>
-      </div>
-    </div>
-
-    <button class="wt-progress-link" id="wtProgressLink" type="button" aria-label="Open progress photos">
-      <div>
-        <div class="wt-progress-label">PROGRESS PHOTOS</div>
-        <div class="wt-progress-count" id="wtProgressCount">0 photos</div>
-      </div>
-      <span class="wt-progress-arrow">→</span>
-    </button>
-  </div>
-
-  <!-- Progress photos overlay -->
-  <div class="wt-overlay" id="wtOverlay" aria-hidden="true">
-    <div class="wt-overlay-inner">
-      <div class="wt-overlay-h">
-        <button class="wt-back" id="wtBack" aria-label="Back">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        </button>
-        <div class="wt-overlay-title">Progress</div>
-      </div>
-      <div class="wt-overlay-actions">
-        <button class="wt-overlay-action wt-overlay-primary" id="wtTakePhotoBtn">Take Photo</button>
-        <button class="wt-overlay-action wt-overlay-secondary" id="wtFromLibraryBtn">From Library</button>
-      </div>
-      <input type="file" id="wtFileCamera" accept="image/*" capture="environment" style="display:none">
-      <input type="file" id="wtFileLibrary" accept="image/*" style="display:none">
-      <div class="wt-photo-grid" id="wtPhotoGrid">
-        <div class="wt-photo-empty">No photos yet · tap Take Photo to start</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Camera modal -->
-  <div class="wt-cam" id="wtCam" aria-hidden="true">
-    <div class="wt-cam-stage">
-      <video class="wt-cam-video" id="wtCamVideo" autoplay playsinline muted></video>
-      <canvas id="wtCamCanvas" style="display:none"></canvas>
-    </div>
-    <div class="wt-cam-actions">
-      <button class="wt-cam-btn" id="wtCamCancel">Cancel</button>
-      <button class="wt-cam-shutter" id="wtCamShutter" aria-label="Capture"></button>
-      <button class="wt-cam-btn" id="wtCamFlip" aria-label="Flip camera">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- Photo viewer — has two modes: single (one photo) and compare (two photos side-by-side) -->
-  <div class="wt-viewer" id="wtViewer" data-mode="single" aria-hidden="true">
-
-    <!-- SINGLE MODE -->
-    <div class="wt-viewer-single">
-      <div class="wt-viewer-stage">
-        <img id="wtViewerImg" alt="" style="max-width:100%; max-height:100%; object-fit:contain;">
-      </div>
-      <div class="wt-viewer-meta">
-        <div class="wt-viewer-date" id="wtViewerDate">—</div>
-        <div class="wt-viewer-weight" id="wtViewerWeight">—</div>
-      </div>
-      <div class="wt-viewer-actions">
-        <button class="wt-viewer-btn wt-viewer-compare" id="wtViewerCompare">Compare</button>
-        <button class="wt-viewer-btn wt-viewer-close" id="wtViewerClose">Close</button>
-        <button class="wt-viewer-btn wt-viewer-delete" id="wtViewerDelete">Delete</button>
-      </div>
-    </div>
-
-    <!-- COMPARE MODE -->
-    <div class="wt-viewer-compare-view">
-      <div class="wt-compare-stage">
-        <div class="wt-compare-side" id="wtCmpSideA">
-          <img id="wtCmpImgA" alt="">
-          <div class="wt-compare-meta-line" id="wtCmpMetaA">—</div>
-        </div>
-        <button type="button" class="wt-compare-side wt-compare-other" id="wtCmpSideB" title="Tap to compare to a different photo" aria-label="Compare to a different photo">
-          <img id="wtCmpImgB" alt="">
-          <div class="wt-compare-meta-line" id="wtCmpMetaB">—</div>
-        </button>
-      </div>
-      <div class="wt-compare-headline" id="wtCompareHeadline">—</div>
-      <div class="wt-viewer-actions">
-        <button class="wt-viewer-btn wt-viewer-back" id="wtCompareBack">← Back</button>
-        <button class="wt-viewer-btn wt-viewer-close" id="wtCompareClose">Close</button>
-        <button class="wt-viewer-btn wt-viewer-delete" id="wtCompareDelete">Delete</button>
-      </div>
-    </div>
-
-  </div>
-
   <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;align-self:flex-start;margin-bottom:14px;padding:6px 13px 6px 9px;background:var(--brand-soft);border:1px solid var(--brand-line);border-radius:999px;color:var(--brand);font-size:12px;font-weight:600;letter-spacing:.01em;text-decoration:none">← Liam</a>
   <div class="po-header">
     <h1 class="po-title" id="appTitle">Progressive Overload Coach</h1>
@@ -1522,6 +1384,9 @@ img, video, canvas, svg { max-width: 100%; }
     </button>
     </div>
   </div>
+
+  <!-- Live lift ticker — real PRs/progress from your logged sets (last 90 days) -->
+  <div id="liftTicker" class="ltHost" style="display:none"></div>
 
   <div class="card">
     <!-- Filters -->
@@ -2155,6 +2020,45 @@ img, video, canvas, svg { max-width: 100%; }
     const ri = document.getElementById('repsInput'); if (ri) ri.value = ''; // pills now reflect the value
   }
 
+  // Real lift progress for the scrolling ticker — each exercise's latest logged
+  // set vs the previous one (last 90 days). PRs (weight/rep gains) listed first.
+  function liftTickerData() {
+    const now = Date.now(), cutoff = now - 90 * 86400000, out = [];
+    (state.exercises || []).forEach(ex => {
+      const logs = ((state.logs && state.logs[ex.id]) || [])
+        .filter(l => l && typeof l.weight === 'number' && typeof l.reps === 'number' && l.date);
+      if (logs.length < 2) return;
+      logs.sort((a, b) => new Date(a.date) - new Date(b.date));
+      const cur = logs[logs.length - 1];
+      if (new Date(cur.date).getTime() < cutoff) return;
+      const prev = logs[logs.length - 2];
+      let kind;
+      if (cur.weight > prev.weight) kind = 'pr_weight';
+      else if (cur.weight === prev.weight && cur.reps > prev.reps) kind = 'pr_reps';
+      else if (cur.weight < prev.weight) kind = 'down';
+      else return; // no change / rep regress — skip
+      out.push({ name: ex.name, kind, cur, prev });
+    });
+    out.sort((a, b) => (a.kind === 'down' ? 1 : 0) - (b.kind === 'down' ? 1 : 0));
+    return out;
+  }
+  function renderLiftTicker() {
+    const host = $('liftTicker'); if (!host) return;
+    const items = liftTickerData();
+    if (!items.length) { host.style.display = 'none'; host.innerHTML = ''; return; } // no Gym data → hide
+    host.style.display = '';
+    const u = state.units;
+    const itemHtml = s => {
+      const up = s.kind !== 'down', arrow = up ? '↑' : '↓';
+      let body;
+      if (s.kind === 'pr_reps') body = s.prev.reps + ' → <strong>' + s.cur.reps + '</strong> reps @ ' + s.cur.weight + u;
+      else body = s.prev.weight + u + ' → <strong>' + s.cur.weight + u + '</strong>';
+      return '<span class="lt-item ' + (up ? 'lt-up' : 'lt-down') + '"><span class="lt-arrow">' + arrow + '</span><span class="lt-name">' + escape(s.name) + '</span><span class="lt-sep">·</span><span class="lt-body">' + body + '</span></span>';
+    };
+    const seq = items.map(itemHtml).join('');
+    host.innerHTML = '<div class="lt"><div class="lt-badge"><span class="lt-dot"></span>lifts · 90d</div><div class="lt-vp"><div class="lt-track">' + seq + seq + '</div></div></div>';
+  }
+
   function renderAll() {
     renderDayPill();
     renderFilters(); renderSelect(); renderForm(); renderLastSet();
@@ -2162,6 +2066,7 @@ img, video, canvas, svg { max-width: 100%; }
     renderRx(); renderStats(); renderSparkline(); renderHistory();
     renderTodaysWorkout();
     renderPastWorkouts();
+    renderLiftTicker();
     // Pre-fill weight input with last logged weight (or starting weight)
     const ex = getCurrentEx();
     if (ex && !ex.bw) {
@@ -2781,6 +2686,7 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   function wtRender() {
+    if (!$('wtNum')) return; // weight card moved to Progress page
     const last = wtEntries[wtEntries.length - 1] || null;
     const todayKey = wtDateKey(new Date());
     const todayEntry = wtEntries.find(e => e.dateKey === todayKey);
@@ -3049,15 +2955,15 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   // Wire weight UI
-  $('wtSaveBtn').addEventListener('click', () => {
+  $('wtSaveBtn')?.addEventListener('click', () => {
     const v = parseFloat($('wtInput').value);
     if (isNaN(v) || v <= 0) return;
     wtSaveEntry(v);
   });
-  $('wtInput').addEventListener('keydown', (e) => {
+  $('wtInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') $('wtSaveBtn').click();
   });
-  $('wtEditBtn').addEventListener('click', () => {
+  $('wtEditBtn')?.addEventListener('click', () => {
     $('wtLocked').classList.add('hidden');
     $('wtInputRow').classList.remove('hidden');
     const todayEntry = wtEntries.find(e => e.dateKey === wtDateKey(new Date()));
@@ -3118,6 +3024,7 @@ img, video, canvas, svg { max-width: 100%; }
     return last ? (last.weight.toFixed(1) + ' ' + state.units) : '—';
   }
   function photosRender() {
+    if (!$('wtPhotoGrid')) return; // photos moved to Progress page
     const grid = $('wtPhotoGrid');
     if (!photos.length) {
       grid.innerHTML = '<div class="wt-photo-empty">No photos yet · tap Take Photo to start</div>';
@@ -3202,12 +3109,12 @@ img, video, canvas, svg { max-width: 100%; }
     r.readAsDataURL(file);
   }
 
-  $('wtProgressLink').addEventListener('click', () => {
+  $('wtProgressLink')?.addEventListener('click', () => {
     photosRender();
     $('wtOverlay').classList.add('is-open');
     document.body.style.overflow = 'hidden';
   });
-  $('wtBack').addEventListener('click', () => {
+  $('wtBack')?.addEventListener('click', () => {
     $('wtOverlay').classList.remove('is-open');
     document.body.style.overflow = '';
   });
@@ -3238,30 +3145,30 @@ img, video, canvas, svg { max-width: 100%; }
     $('wtCamVideo').srcObject = null;
     $('wtCam').classList.remove('is-open');
   }
-  $('wtTakePhotoBtn').addEventListener('click', async () => {
+  $('wtTakePhotoBtn')?.addEventListener('click', async () => {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try { await openCam(); return; } catch (e) {}
     }
     $('wtFileCamera').click();
   });
-  $('wtFileCamera').addEventListener('change', (e) => {
+  $('wtFileCamera')?.addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0];
     if (f) fileToPhoto(f);
     e.target.value = '';
   });
-  $('wtFromLibraryBtn').addEventListener('click', () => $('wtFileLibrary').click());
-  $('wtFileLibrary').addEventListener('change', (e) => {
+  $('wtFromLibraryBtn')?.addEventListener('click', () => $('wtFileLibrary').click());
+  $('wtFileLibrary')?.addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0];
     if (f) fileToPhoto(f);
     e.target.value = '';
   });
-  $('wtCamCancel').addEventListener('click', closeCam);
-  $('wtCamFlip').addEventListener('click', async () => {
+  $('wtCamCancel')?.addEventListener('click', closeCam);
+  $('wtCamFlip')?.addEventListener('click', async () => {
     camFacing = camFacing === 'environment' ? 'user' : 'environment';
     if (camStream) camStream.getTracks().forEach(t => t.stop());
     try { await openCam(); } catch (e) {}
   });
-  $('wtCamShutter').addEventListener('click', () => {
+  $('wtCamShutter')?.addEventListener('click', () => {
     const video = $('wtCamVideo'), canvas = $('wtCamCanvas');
     if (!video.videoWidth) return;
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
@@ -3382,17 +3289,17 @@ img, video, canvas, svg { max-width: 100%; }
     closePhoto();
   }
 
-  $('wtViewerClose').addEventListener('click', closePhoto);
-  $('wtCompareClose').addEventListener('click', closePhoto);
-  $('wtViewerDelete').addEventListener('click', () => deleteActivePhoto($('wtViewerDelete')));
-  $('wtCompareDelete').addEventListener('click', () => deleteActivePhoto($('wtCompareDelete')));
-  $('wtViewerCompare').addEventListener('click', () => {
+  $('wtViewerClose')?.addEventListener('click', closePhoto);
+  $('wtCompareClose')?.addEventListener('click', closePhoto);
+  $('wtViewerDelete')?.addEventListener('click', () => deleteActivePhoto($('wtViewerDelete')));
+  $('wtCompareDelete')?.addEventListener('click', () => deleteActivePhoto($('wtCompareDelete')));
+  $('wtViewerCompare')?.addEventListener('click', () => {
     if (!activePhotoId) return;
     const otherId = defaultCompareFor(activePhotoId);
     if (!otherId) { alert('Need at least one other photo to compare.'); return; }
     openCompare(activePhotoId, otherId);
   });
-  $('wtCompareBack').addEventListener('click', () => {
+  $('wtCompareBack')?.addEventListener('click', () => {
     if (activePhotoId) {
       $('wtViewer').dataset.mode = 'single';
     } else {
@@ -3400,7 +3307,7 @@ img, video, canvas, svg { max-width: 100%; }
     }
   });
   // Tap the right-hand "other" photo to cycle through different comparison targets
-  $('wtCmpSideB').addEventListener('click', cycleCompareTarget);
+  $('wtCmpSideB')?.addEventListener('click', cycleCompareTarget);
 
   // ============================================================
   // BOOT
@@ -3645,5 +3552,6 @@ img, video, canvas, svg { max-width: 100%; }
 </script>
 
 <script>(function(){function cur(){try{return localStorage.getItem("patron_theme")||"nocturne";}catch(e){return "nocturne";}}function paint(){var c=cur();document.querySelectorAll(".themeBtn").forEach(function(b){b.classList.toggle("themeBtnActive",b.dataset.theme===c);});}document.addEventListener("click",function(e){var b=e.target.closest(".themeBtn");if(!b)return;var n=b.dataset.theme;document.documentElement.setAttribute("data-theme",n);try{localStorage.setItem("patron_theme",n);}catch(e){}paint();});paint();})();</script>
+<script src="brand.js?v=16"></script>
 </body>
 </html>
