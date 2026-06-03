@@ -142,8 +142,10 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font-ui), -ap
 .cardArt { position: relative; aspect-ratio: 16/10; background: radial-gradient(circle at 50% 42%, #16162a, #0b0b14 72%); display:grid; place-items:center; overflow:hidden; }
 .cardArt::before { content:''; position:absolute; inset:0; background: var(--art, linear-gradient(135deg,#8B5CF6,#22D3EE)); opacity: 0.13; }
 .cardArt::after { content:''; position:absolute; inset:0; background: radial-gradient(120% 80% at 50% 120%, rgba(0,0,0,.45), transparent 70%); }
-.cardArtIcon { position: relative; z-index:1; display:grid; place-items:center; transition: transform var(--duration) var(--ease-premium); }
-.cardArtIcon svg { width: 60px; height: 60px; display:block; }
+.cardArtIcon { position: relative; z-index:1; display:grid; place-items:center; overflow: visible; transition: transform var(--duration) var(--ease-premium); }
+/* overflow:visible lets each icon's glow/depth fade out softly instead of being
+   clipped into a hard box at the SVG's bounding-box edge */
+.cardArtIcon svg { width: 60px; height: 60px; display:block; overflow: visible; }
 .card:hover .cardArtIcon { transform: scale(1.08); }
 .cardArtBadge { position:absolute; top:10px; left:10px; z-index:1; font-family: var(--font-mono); font-size: 9px; letter-spacing:.1em; text-transform:uppercase; color:#fff; background: rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.18); backdrop-filter: blur(6px); padding: 4px 9px; border-radius: var(--radius-pill); max-width: calc(100% - 20px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .cardBody { display:flex; flex-direction:column; gap: 3px; padding: 14px 15px 15px; }
