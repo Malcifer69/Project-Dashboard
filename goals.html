@@ -867,8 +867,10 @@ body::after {
 (function () {
   'use strict';
 
-  // Paste your Anthropic key here to enable ✨ Polish. Empty = falls back to plain add.
-  const ANTHROPIC_API_KEY = '';
+  // Anthropic key for ✨ Polish is read from your Finance settings — entered in the
+  // app and stored only in this browser. It is NEVER hardcoded here, so it can't
+  // leak when the repo is public/forked. (Finance → settings → Anthropic key.)
+  function getAnthropicKey(){ try { return (JSON.parse(localStorage.getItem('finance_settings_v1') || '{}').anthropicKey || '').trim(); } catch (e) { return ''; } }
 
   // Day window is dynamic: pulled from the suite-wide vitals record (Whoop / Apple
   // Watch / manual entry), or overridden manually via the ⚙ popover. Defaults 8 / 24.
@@ -1474,7 +1476,7 @@ body::after {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
+        'x-api-key': getAnthropicKey(),
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
@@ -1515,7 +1517,7 @@ body::after {
     polishBtn.addEventListener('click', async () => {
       const text = input.value.trim();
       if (!text) return;
-      if (!ANTHROPIC_API_KEY) {
+      if (!getAnthropicKey()) {
         plainAdd(text);
         showStatus(statusEl, 'Polish needs an Anthropic API key — added as-typed.', false);
         return;
