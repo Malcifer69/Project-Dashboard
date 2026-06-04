@@ -396,6 +396,24 @@ async function syncApple(){
 
 function sourceLabel(s){ return s === 'apple' ? 'Apple Watch' : s === 'manual' ? 'Manual' : s === 'fitbit' ? 'Fitbit' : 'Whoop'; }
 function recTone(r){ if (r == null) return 'muted'; if (r >= 67) return 'good'; if (r >= 34) return 'watch'; return 'low'; }
+function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+/* Estimated recovery/readiness (1–99) when the source gives none (Apple, Fitbit).
+ * HRV is the main driver, then resting HR, then sleep. Rough population anchors —
+ * a daily readiness estimate, not a medical score. Returns null if too little data. */
+function estRecovery(h){
+  if (!h) return null;
+  if (h.recovery != null) return h.recovery;
+  const parts = [], w = [];
+  if (typeof h.hrv === 'number') { parts.push(clamp01((h.hrv - 20) / (90 - 20)) * 100); w.push(0.5); }
+  if (typeof h.rhr === 'number') { parts.push(clamp01((80 - h.rhr) / (80 - 42)) * 100); w.push(0.25); }
+  if (typeof h.sleepPerf === 'number') { parts.push(Math.min(100, h.sleepPerf)); w.push(0.25); }
+  else if (typeof h.sleepHours === 'number') { parts.push(clamp01(h.sleepHours / (h.sleepTargetHours || 8)) * 100); w.push(0.25); }
+  if (!parts.length) return null;
+  const sw = w.reduce((a, b) => a + b, 0);
+  let s = 0; for (let i = 0; i < parts.length; i++) s += parts[i] * w[i];
+  return Math.max(1, Math.min(99, Math.round(s / sw)));
+}
+function isEstRecovery(h){ return !!(h && h.recovery == null && estRecovery(h) != null); }
 function formatHM(h){ if (h == null) return '—'; const hh = Math.floor(h); const mm = Math.round((h - hh) * 60); return hh + 'h ' + String(mm).padStart(2,'0') + 'm'; }
 function formatClock(t){ if (!t) return '—'; const [h, m] = String(t).split(':').map(Number); if (!isFinite(h)) return esc(t); const ap = h < 12 ? 'am' : 'pm'; const h12 = h % 12 === 0 ? 12 : h % 12; return h12 + ':' + String(m || 0).padStart(2,'0') + ap; }
 function ago(ts){ if (!ts) return ''; const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); if (m < 1) return 'just now'; if (m < 60) return m + 'm ago'; return Math.round(m / 60) + 'h ago'; }
@@ -446,11 +464,13 @@ function vitalsTileHtml(){
       + '<p class="vitalsEmptyBody">Connect Whoop, link your Apple Watch, or enter recovery &amp; sleep by hand. Your numbers then power the rest of the suite — the supplement recommender reads recovery &amp; sleep automatically.</p>'
       + '<div class="vitalsFoot"><button type="button" class="btn btn-primary" data-action="open-vitals">Add vitals</button></div></div></section>';
   }
-  const tone = recTone(h.recovery);
+  const rec = estRecovery(h);
+  const est = isEstRecovery(h);
+  const tone = recTone(rec);
   const circ = 2 * Math.PI * 56;
   const ring = '<div class="recRing" data-tone="' + tone + '"><svg viewBox="0 0 132 132" aria-hidden><circle cx="66" cy="66" r="56" class="recTrack"/>'
-    + (h.recovery != null ? '<circle cx="66" cy="66" r="56" class="recFill" style="stroke-dasharray:' + circ + ';stroke-dashoffset:' + (circ * (1 - h.recovery / 100)) + ';"/>' : '')
-    + '</svg><div style="text-align:center"><div class="recNum">' + (h.recovery != null ? Math.round(h.recovery) : '—') + (h.recovery != null ? '<span class="recUnit">%</span>' : '') + '</div><div class="recCap">Recovery</div></div></div>';
+    + (rec != null ? '<circle cx="66" cy="66" r="56" class="recFill" style="stroke-dasharray:' + circ + ';stroke-dashoffset:' + (circ * (1 - rec / 100)) + ';"/>' : '')
+    + '</svg><div style="text-align:center"><div class="recNum">' + (rec != null ? Math.round(rec) : '—') + (rec != null ? '<span class="recUnit">%</span>' : '') + '</div><div class="recCap">' + (est ? 'Recovery · est' : 'Recovery') + '</div></div></div>';
   function row(label, val){ return '<div class="vRow"><span class="vLabel">' + label + '</span><span class="vVal">' + val + '</span></div>'; }
   const sleepVal = h.sleepHours != null ? formatHM(h.sleepHours) + (h.sleepPerf != null ? '<em>' + Math.round(h.sleepPerf) + '%</em>' : '') : '—';
   const metrics = '<div class="vMetrics">'
@@ -478,7 +498,7 @@ function statFor(file){
     else if (file === 'supplements.html') { const s = lsGet('supplements_standalone_v1'); if (s && Array.isArray(s.items) && s.items.length) { const tk = (s.taken && s.taken[activeDateKey()]) || {}; const n = s.items.filter(i => tk[i.id]).length; return { value: n + '/' + s.items.length, label: 'taken today' }; } }
     else if (file === 'water.html') { const s = lsGet('water_standalone_v1'); if (s && s.logs) { const n = s.logs[localDateKey()] || 0; return { value: String(n), label: (n === 1 ? 'drink' : 'drinks') + ' today' }; } }
     else if (file === 'stimulant.html') { const s = lsGet('stimulant_standalone_v1'); if (s && Array.isArray(s.logs)) { const k = localDateKey(); const mg = s.logs.filter(l => l && localDateKey(new Date(l.t)) === k).reduce((a,l)=>a+(Number(l.mg)||0),0); if (mg>0) return { value: mg + ' mg', label: 'caffeine today' }; } }
-    else if (file === 'whoop.html') { if (health && health.recovery != null) return { value: Math.round(health.recovery) + '%', label: 'recovery' }; }
+    else if (file === 'whoop.html') { const rec = estRecovery(health); if (rec != null) return { value: Math.round(rec) + '%', label: isEstRecovery(health) ? 'recovery · est' : 'recovery' }; }
   } catch (e) {}
   return null;
 }
@@ -536,7 +556,7 @@ function tickerMetrics(){
   const add = (label, value, unit, tone, delta) => out.push({ label, value, unit: unit || '', tone: tone || 'brand', delta: delta || '' });
   const h = health;
   if (h){
-    if (h.recovery != null) add('REC', Math.round(h.recovery), '%', recTone(h.recovery));
+    { const rec = estRecovery(h); if (rec != null) add('REC', Math.round(rec), '%', recTone(rec)); }
     if (h.sleepHours != null){ const hh = Math.floor(h.sleepHours), mm = Math.round((h.sleepHours - hh) * 60); add('SLP', hh + 'h' + String(mm).padStart(2,'0'), '', h.sleepPerf != null ? (h.sleepPerf >= 85 ? 'good' : h.sleepPerf >= 60 ? 'watch' : 'low') : 'brand'); }
     if (h.strain != null) add('STR', (Math.round(h.strain * 10) / 10).toFixed(1), '', 'brand');
     if (h.hrv != null) add('HRV', Math.round(h.hrv), 'ms', 'good');
