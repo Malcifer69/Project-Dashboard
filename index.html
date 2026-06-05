@@ -391,8 +391,10 @@ async function syncApple(){
     appleStatus = { connected: !!j.connected, checked: true };
     if (j.connected && !whoopStatus.connected && !fitbitStatus.connected) {
       const incomingTs = j.ts || 0;
-      if (!health || health.source === 'apple' || incomingTs > (health.ts || 0)) {
-        health = { source: 'apple', connected: true, ts: j.ts || Date.now(), recovery: j.recovery, sleepHours: j.sleepHours, sleepPerf: j.sleepPerf, sleepTargetHours: j.sleepTargetHours || 8, bedtime: j.bedtime, wakeTime: j.wakeTime, hrv: j.hrv, rhr: j.rhr, strain: j.strain };
+      const incomingSrc = (j.source === 'manual') ? 'manual' : 'apple';
+      // Treat both shortcut sources (apple / manual) as the "pushed" record.
+      if (!health || health.source === 'apple' || health.source === 'manual' || incomingTs > (health.ts || 0)) {
+        health = { source: incomingSrc, connected: true, ts: j.ts || Date.now(), recovery: j.recovery, sleepHours: j.sleepHours, sleepPerf: j.sleepPerf, sleepTargetHours: j.sleepTargetHours || 8, bedtime: j.bedtime, wakeTime: j.wakeTime, hrv: j.hrv, rhr: j.rhr, strain: j.strain };
         saveHealth(health);
       }
     }

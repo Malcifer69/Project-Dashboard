@@ -61,8 +61,10 @@ module.exports = async (req, res) => {
       }
     }
     const target = num(g('sleepTargetHours')) || 8;
+    // Optional source tag so a hand-typed Shortcut shows as "Manual" (not Apple Watch).
+    const src = (g('source') === 'manual') ? 'manual' : 'apple';
     const data = {
-      source: 'apple', connected: true, ts: Date.now(),
+      source: src, connected: true, ts: Date.now(),
       recovery: num(g('recovery')),                 // Apple has no recovery score — leave blank or feed a readiness app
       sleepHours: sleepHours,
       sleepPerf: sleepHours != null ? Math.round(Math.min(100, (sleepHours / target) * 100)) : num(g('sleepPerf')),
