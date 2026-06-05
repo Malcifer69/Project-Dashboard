@@ -358,19 +358,28 @@ function overall(){
   if(waterLoggedToday()){ const hyd=Math.round(clamp01(drinksToday()/waterTarget())*100); parts.push(hyd); w.push(0.10); labels.push(['Hydration',hyd,false]); }
   const ms=macrosScore(); if(ms!=null){ parts.push(ms); w.push(0.10); labels.push(['Protein',ms,false]); }
   if(gymLoggedToday()){ parts.push(100); w.push(0.05); labels.push(['Trained',100,false]); }
-  if(!parts.length) return { score:null, labels:[] };
+  if(!parts.length) return { score:null, objective:null, feel:null, adj:0, feelW:0, labels:[] };
   const sw=w.reduce((a,b)=>a+b,0); let s=0; for(let i=0;i<parts.length;i++)s+=parts[i]*w[i];
-  let score=Math.round(s/sw);
-  // Blend + learn: if you've set "how I feel" today, nudge the score toward it.
-  const f=latestFeelToday(); if(f!=null) score=Math.round(score*0.6+f*0.4);
-  return { score, labels };
+  const objective=Math.round(s/sw);
+  // Blend + learn: your "how I feel" pulls the score toward your felt state. The
+  // pull starts gentle (30%) and grows as your check-ins prove reliable (→50%
+  // over 30 days), so the more you use it the more it trusts you.
+  const f=latestFeelToday();
+  let score=objective, adj=0, feelW=0;
+  if(f!=null){ feelW=0.30+0.20*calibStrength(); score=Math.round(objective+(f-objective)*feelW); adj=score-objective; }
+  return { score, objective, feel:f, adj, feelW:Math.round(feelW*100), labels };
 }
 
 /* ---- feel-check store (the little "how I feel right now" slider) ---- */
 const FLOG='peak_feel_v1';
 function loadFeel(){ if(_feelC!==undefined)return _feelC; const r=readLS(FLOG); _feelC=(r&&Array.isArray(r.checks))?r:{checks:[]}; return _feelC; }
 function saveFeel(f){ _feelC=f; try{ localStorage.setItem(FLOG,JSON.stringify(f)); }catch(e){} if(window.PatronDB&&PatronDB.isCloud())PatronDB.set('peakfeel',f); }
-function addFeel(pct){ const f=loadFeel(); f.checks.push({t:Date.now(),pct:pct,pred:Math.round(energyRaw(nowT()))}); if(f.checks.length>2000)f.checks.shift(); saveFeel(f); }
+// One check per session: if you slid it again within ~20 min, update that entry
+// instead of piling up dozens of points (keeps the slider value + clean learning data).
+function addFeel(pct){ const f=loadFeel(); const now=Date.now(); const last=f.checks[f.checks.length-1];
+  if(last && (now-last.t)<20*60000 && dayKey(new Date(last.t))===dayKey(new Date(now))){ last.pct=pct; last.t=now; last.pred=Math.round(energyRaw(nowT())); }
+  else { f.checks.push({t:now,pct:pct,pred:Math.round(energyRaw(nowT()))}); }
+  if(f.checks.length>2000)f.checks.shift(); saveFeel(f); }
 function latestFeelToday(){ const f=loadFeel(); const today=dKey(); let best=null; for(const c of f.checks){ if(dayKey(new Date(c.t))===today)best=c; } return best?best.pct:null; }
 function feelDays(){ const f=loadFeel(); const set={}; f.checks.forEach(c=>{ set[dayKey(new Date(c.t))]=1; }); return Object.keys(set).length; }
 // Personal calibration: average gap between how you FELT and what we PREDICTED,
@@ -649,7 +658,13 @@ function render(){
     +(ov.score!=null?'<circle class="fl" cx="100" cy="100" r="90" style="stroke-dasharray:'+c1+';stroke-dashoffset:'+(c1*(1-sv/100))+'"/>':'')
     +'</svg>'
     +'<div class="bigInner"><div class="bigNum">'+(ov.score!=null?ov.score:'—')+'</div><div class="bigWord">'+ot.word+'</div><div class="bigCap">Today overall</div></div></div>';
-  const why='<div class="whyBox'+(whyOpen?' on':'')+'" id="whyBox">'+ov.labels.map(l=>'<div class="whyRow"><span>'+l[0]+'</span><b>'+Math.round(l[1])+'%</b></div>').join('')+'</div>';
+  let whyRows = ov.labels.map(l=>'<div class="whyRow"><span>'+l[0]+'</span><b>'+Math.round(l[1])+'%</b></div>').join('');
+  if(ov.feel!=null){
+    whyRows += '<div class="whyRow"><span>Objective blend</span><b>'+ov.objective+'%</b></div>'
+      + '<div class="whyRow"><span>You feel '+ov.feel+'% ('+ov.feelW+'% pull)</span><b>'+(ov.adj>=0?'+':'')+ov.adj+'</b></div>'
+      + '<div class="whyRow" style="border-top-color:var(--line2)"><span style="color:var(--accent2)">Today overall</span><b style="color:var(--accent2)">'+ov.score+'%</b></div>';
+  }
+  const why='<div class="whyBox'+(whyOpen?' on':'')+'" id="whyBox">'+whyRows+'</div>';
   const scoreCard='<div class="card scoreCard">'+ovRing+'<button class="whyLink" id="whyLink">Why this score →</button>'+why+'</div>';
 
   const recs=recommendations();
