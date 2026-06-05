@@ -237,6 +237,15 @@ body{ background:var(--bg); color:var(--fg); font-family:var(--ui); -webkit-font
 .cafTipIcon{ font-size:17px; flex-shrink:0; }
 .cafTipTxt{ font-size:14px; line-height:1.5; color:var(--muted2); }
 .cafTipTxt b{ color:var(--fg); }
+.cafLogsHead{ display:flex; align-items:center; justify-content:space-between; margin-top:16px; }
+.cafLogsLab{ font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+.cafClear{ appearance:none; background:none; border:0; cursor:pointer; font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.cafClear:hover{ color:var(--low); }
+.cafLogs{ display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+.cafLog{ display:inline-flex; align-items:center; gap:8px; padding:7px 7px 7px 11px; border-radius:var(--pill); border:1px solid var(--line); background:rgba(255,255,255,.02); font-family:var(--mono); font-size:11px; color:var(--muted2); }
+.cafLog b{ color:var(--fg); font-weight:600; }
+.cafLogX{ cursor:pointer; display:grid; place-items:center; width:18px; height:18px; border-radius:50%; color:var(--muted); font-size:13px; line-height:1; }
+.cafLogX:hover{ color:var(--low); background:rgba(251,113,133,.12); }
 @media (prefers-reduced-motion:reduce){ .gem,.bigRing .glow,.tkLive .d,.tkTrack{ animation:none } }
 </style>
 </head>
@@ -510,14 +519,17 @@ function recommendations(){
  * Caffeine — quick-log + crash coaching
  * ============================================================ */
 const CAF_QUICK=[['Espresso',63],['Double esp.',126],['Coffee',95],['Cold brew',155],['Tea',47],['Energy drink',160]];
+function saveStim(s){ try{ localStorage.setItem('stimulant_standalone_v1',JSON.stringify(s)); }catch(e){} if(window.PatronDB&&PatronDB.isCloud())PatronDB.set('stimulant',s); render(); }
 function logCaffeine(mg,name){
   const s=readLS('stimulant_standalone_v1')||{logs:[],custom:[]};
   if(!Array.isArray(s.logs))s.logs=[];
   s.logs.push({id:'c_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:name,mg:mg,t:Date.now()});
-  try{ localStorage.setItem('stimulant_standalone_v1',JSON.stringify(s)); }catch(e){}
-  if(window.PatronDB&&PatronDB.isCloud())PatronDB.set('stimulant',s);
-  render();
+  saveStim(s);
 }
+function caffTodayLogs(){ const k=dKey(); return stimLogs().filter(l=>dayKey(new Date(l.t))===k).sort((a,b)=>b.t-a.t); }
+function removeCaffLog(id){ const s=readLS('stimulant_standalone_v1')||{logs:[],custom:[]}; if(Array.isArray(s.logs))s.logs=s.logs.filter(l=>String(l.id)!==String(id)); saveStim(s); }
+function clearCaffToday(){ const k=dKey(); const s=readLS('stimulant_standalone_v1')||{logs:[],custom:[]}; if(Array.isArray(s.logs))s.logs=s.logs.filter(l=>dayKey(new Date(l.t))!==k); saveStim(s); }
+function fmtClockMs(ms){ const d=new Date(ms); let h=d.getHours(),m=d.getMinutes(); const ap=h<12?'am':'pm'; h=h%12||12; return h+':'+String(m).padStart(2,'0')+ap; }
 // find the lowest point of the curve in the next `hrs` hours → the upcoming dip/crash
 function upcomingLow(fromT,hrs){ let lowT=fromT,lowE=energyAt(fromT).e; for(let t=fromT; t<=fromT+hrs; t+=0.25){ const e=energyAt(t).e; if(e<lowE){ lowE=e; lowT=t; } } return {t:lowT,e:lowE}; }
 /* ---- caffeine intelligence: limits, timing, clearance, dose impact ---- */
@@ -697,10 +709,16 @@ function caffeineCardHtml(){
     +'<div class="cafS"><div class="cafSV">'+(caffClearsClock()||'Clear')+'</div><div class="cafSL">Out of system</div></div>'
     +'<div class="cafS"><div class="cafSV">'+caffSweetDose()+'<small> mg</small></div><div class="cafSL">Ideal dose</div></div>'
     +'</div>'
-    +'<p class="cafQL">Quick log <span>· +N = projected energy lift</span></p>'
+    +'<p class="cafQL">Quick log <span>· +N = energy lift</span></p>'
     +'<div class="cafChips">'+chips+'</div>'
+    + caffLogsHtml()
     +'<div class="cafTip'+(tip.warn?' warn':'')+'"><span class="cafTipIcon">'+tip.icon+'</span><span class="cafTipTxt">'+tip.txt+'</span></div>'
-    +'<p class="derived" style="margin-top:12px">Each tap logs to your <a href="stimulant.html" style="color:var(--accent2)">Stimulant tracker</a> and updates the curve. Caffeine takes ~45 min to absorb — “on board” climbs after you drink.</p></div>';
+    +'</div>';
+}
+function caffLogsHtml(){
+  const logs=caffTodayLogs(); if(!logs.length) return '';
+  return '<div class="cafLogsHead"><span class="cafLogsLab">Today’s intake</span><button class="cafClear" data-clearcaf="1">clear all</button></div>'
+    +'<div class="cafLogs">'+logs.map(l=>'<span class="cafLog"><b>'+esc(l.name||'Caffeine')+'</b> '+Math.round(l.mg)+'mg · '+fmtClockMs(l.t)+'<span class="cafLogX" data-rmcaf="'+esc(l.id||'')+'" title="Remove">×</span></span>').join('')+'</div>';
 }
 
 /* ============================================================
@@ -813,6 +831,8 @@ function saveManual(){
 function captureRhr(){ const el=document.getElementById('m-rhr'); if(el&&draft){ const n=Number(el.value); draft.rhr=(el.value!==''&&isFinite(n))?n:null; } }
 document.addEventListener('click',e=>{
   if(e.target.closest('#mSave')){ saveManual(); return; }
+  const rm=e.target.closest('[data-rmcaf]'); if(rm){ removeCaffLog(rm.dataset.rmcaf); return; }
+  const cc=e.target.closest('[data-clearcaf]'); if(cc){ if(confirm('Clear all of today’s caffeine?')) clearCaffToday(); return; }
   const cf=e.target.closest('[data-caf]'); if(cf){ logCaffeine(+cf.dataset.caf, cf.dataset.cafname||'Caffeine'); return; }
   const rt=e.target.closest('[data-rate]'); if(rt){ captureRhr(); const f=rt.dataset.rate,v=+rt.dataset.val; draft[f]=(draft[f]===v?null:v); render(); return; }
   const wk=e.target.closest('[data-wake]'); if(wk){ captureRhr(); draft.wakeTime=(draft.wakeTime===wk.dataset.wake?null:wk.dataset.wake); render(); return; }
