@@ -672,17 +672,27 @@ async function pickSource(src){
   selectedSrc=src;
   if(!ON_SERVER){ alert('Whoop & Apple Watch sync run on the deployed site (Vercel). Open your live dashboard URL to connect them, or use Manual here.'); return; }
   if(src==='whoop'){
+    const cached=readLS('patron_health_v1');
+    const haveWhoop = cached && cached.source==='whoop' && cached.connected;
     try{ const r=await fetch('/api/whoop/data',{cache:'no-store'}); const j=await r.json();
-      if(j&&j.connected){ saveHealth({source:'whoop',connected:true,ts:j.ts||Date.now(),recovery:j.recovery,sleepHours:j.sleepHours,sleepPerf:j.sleepPerf,sleepTargetHours:j.sleepTargetHours||8,hrv:j.hrv,rhr:j.rhr,strain:j.strain}); render(); }
-      else { location.href='/api/whoop/login'; }
-    }catch(e){ alert('Could not reach Whoop. Set up your Whoop keys in Vercel first (see WHOOP_SETUP.md).'); }
+      if(j&&j.connected){ saveHealth({source:'whoop',connected:true,ts:j.ts||Date.now(),recovery:j.recovery,sleepHours:j.sleepHours,sleepPerf:j.sleepPerf,sleepTargetHours:j.sleepTargetHours||8,hrv:j.hrv,rhr:j.rhr,strain:j.strain}); render(); return; }
+    }catch(e){}
+    // Live refresh didn't confirm a connection. If we already have Whoop data, just
+    // keep showing it — never bounce to a (possibly failing) re-login automatically.
+    if(haveWhoop){ render(); return; }
+    if(confirm('Connect your Whoop account? You’ll log in on whoop.com.')) location.href='/api/whoop/login';
+    else { selectedSrc=null; render(); }
     return;
   }
   if(src==='apple'){
+    const cached=readLS('patron_health_v1');
+    const haveApple = cached && cached.source==='apple' && cached.connected;
     try{ const r=await fetch('/api/apple',{cache:'no-store'}); const j=await r.json();
-      if(j&&j.connected){ saveHealth({source:(j.source==='manual'?'manual':'apple'),connected:true,ts:j.ts||Date.now(),recovery:j.recovery,sleepHours:j.sleepHours,sleepPerf:j.sleepPerf,sleepTargetHours:j.sleepTargetHours||8,bedtime:j.bedtime,wakeTime:j.wakeTime,hrv:j.hrv,rhr:j.rhr,strain:j.strain}); render(); }
-      else { alert('No Apple Watch data yet. Set up the iPhone Shortcut that posts to /api/apple (see APPLE_WATCH_SHORTCUT.md), then tap Apple Watch again.'); }
-    }catch(e){ alert('Could not reach the Apple sync endpoint.'); }
+      if(j&&j.connected){ saveHealth({source:(j.source==='manual'?'manual':'apple'),connected:true,ts:j.ts||Date.now(),recovery:j.recovery,sleepHours:j.sleepHours,sleepPerf:j.sleepPerf,sleepTargetHours:j.sleepTargetHours||8,bedtime:j.bedtime,wakeTime:j.wakeTime,hrv:j.hrv,rhr:j.rhr,strain:j.strain}); render(); return; }
+    }catch(e){}
+    if(haveApple){ render(); return; }
+    alert('No Apple Watch data yet. Set up the iPhone Shortcut that posts to /api/apple (see APPLE_WATCH_SHORTCUT.md), then tap Apple Watch again.');
+    selectedSrc=null; render();
     return;
   }
 }
