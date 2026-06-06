@@ -308,6 +308,38 @@ body{ background:var(--bg); color:var(--fg); font-family:var(--ui); -webkit-font
 .cafAddName{ flex:1; min-width:120px; }
 .cafAddMg{ width:84px; }
 .cafAddBtn{ appearance:none; cursor:pointer; padding:0 18px; border:0; border-radius:10px; font-family:var(--mono); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:#04130c; background:var(--accent); }
+/* schedule */
+.schCard{ display:flex; flex-direction:column; gap:14px; }
+.schInputRow{ display:flex; gap:8px; }
+.schInput{ flex:1; background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:var(--radius-sm); padding:13px 15px; color:var(--fg); font-family:var(--ui); font-size:14px; }
+.schInput:focus{ outline:none; border-color:var(--accent); }
+.schAdd{ appearance:none; cursor:pointer; padding:0 18px; border:0; border-radius:var(--radius-sm); font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#04130c; background:linear-gradient(120deg,var(--accent),var(--accent2)); }
+.schHint{ font-family:var(--mono); font-size:10px; letter-spacing:.06em; color:var(--muted); margin-top:-6px; }
+.schRow{ display:flex; gap:8px; flex-wrap:wrap; }
+.schChip{ display:inline-flex; align-items:center; gap:9px; padding:9px 10px 9px 13px; border-radius:var(--pill); border:1px solid var(--line); background:rgba(255,255,255,.02); border-left:3px solid var(--dc); font-size:13px; color:var(--fg); }
+.schChip b{ font-weight:600; }
+.schChipTime{ font-family:var(--mono); font-size:10px; color:var(--muted); }
+.schX{ cursor:pointer; color:var(--muted); width:18px; height:18px; border-radius:50%; display:grid; place-items:center; font-size:13px; }
+.schX:hover{ color:var(--low); background:rgba(251,113,133,.12); }
+.schNow{ border:1px solid var(--line); border-radius:var(--radius-sm); background:rgba(255,255,255,.02); padding:16px 18px; }
+.schNowTag{ font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); }
+.schNowLabel{ font-family:var(--serif); font-style:italic; font-size:26px; line-height:1.1; margin:6px 0 2px; }
+.schNowTime{ font-family:var(--mono); font-size:12px; color:var(--muted2); }
+.schCount{ font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:8px; }
+.schCount .cdVal{ color:var(--accent2); }
+.schNext{ display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); font-size:13px; color:var(--muted2); }
+.schNext b{ color:var(--fg); }
+.schNextDot{ width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+/* plan dropdown on the curve */
+.planToggle{ width:100%; appearance:none; cursor:pointer; text-align:left; border:1px dashed var(--line2); border-radius:var(--radius-sm); padding:14px 16px; background:rgba(110,231,183,.04); color:var(--accent2); font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; display:flex; justify-content:space-between; }
+.planToggle:hover{ background:rgba(110,231,183,.09); }
+.planDrop{ margin-top:8px; border:1px solid var(--line); border-radius:var(--radius-sm); overflow:hidden; }
+.planItem{ display:flex; align-items:center; gap:12px; padding:11px 14px; border-top:1px solid var(--line); }
+.planItem:first-child{ border-top:0; }
+.planDot{ width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+.planItemL{ flex:1; font-size:14px; color:var(--fg); }
+.planItemTime{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+.planItemPk{ font-family:var(--mono); font-size:10px; color:var(--accent2); border:1px solid var(--line2); border-radius:var(--pill); padding:3px 8px; }
 .glowStar{ position:fixed; width:30px; height:30px; z-index:40; pointer-events:none; filter:drop-shadow(0 0 8px var(--accent)) drop-shadow(0 0 20px rgba(110,231,183,.6)); animation:starSpin 8s linear infinite; }
 .glowStar svg{ width:100%; height:100%; display:block; }
 .glowStar.tl{ top:16px; left:16px } .glowStar.tr{ top:16px; right:16px; animation-duration:9.5s } .glowStar.bl{ bottom:16px; left:16px; animation-duration:10.5s } .glowStar.br{ bottom:16px; right:16px; animation-duration:7s }
@@ -649,6 +681,62 @@ function peakOf(curve){ const {wake,bed}=wakeBed(); let best=curve[0]; for(const
 function optimalSleep(){ const h=health(); const wake=wakeBed().wake; const need=(h&&typeof h.sleepTargetHours==='number')?h.sleepTargetHours:8; const bed=((wake-need)%24+24)%24; return {bed:Math.round(bed*4)/4, wake:Math.round(wake*4)/4, need}; }
 
 /* ============================================================
+ * Schedule — natural-language tasks mapped onto the peak curve
+ * ============================================================ */
+const SCHED='peak_schedule_v1'; let planOpen=false;
+function loadSched(){ const r=readLS(SCHED); return (r&&r.day===dKey()&&Array.isArray(r.tasks))?r.tasks:[]; }
+function saveSched(tasks){ try{ localStorage.setItem(SCHED,JSON.stringify({day:dKey(),tasks})); }catch(e){} if(window.PatronDB&&PatronDB.isCloud())PatronDB.set('peaksched',{day:dKey(),tasks}); render(); }
+function diffOf(s){ if(/\b(hard|intense|deep|heavy|max|pr|grind)\b/i.test(s))return 'hard'; if(/\b(easy|chill|light|admin|rest|relax|recover)\b/i.test(s))return 'easy'; return 'med'; }
+function diffColor(d){ return d==='hard'?'#FF50A6':d==='easy'?'#6EE7B7':'#F59E0B'; }
+function pClock(h,m,ap){ h=+h; m=m?+m:0; if(ap){ ap=ap.toLowerCase(); if(ap[0]==='p'&&h<12)h+=12; if(ap[0]==='a'&&h===12)h=0; } return h+m/60; }
+function parseTask(str){
+  let s=' '+str.trim()+' '; if(!s.trim())return null;
+  const diff=diffOf(s); let start=null,end=null;
+  let m=s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:to|till|until|[-–—])\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+  if(m){ start=pClock(m[1],m[2],m[3]); end=pClock(m[4],m[5],m[6]||m[3]); if(end<=start)end=(end+12<=24)?end+12:start+1; s=s.replace(m[0],' '); }
+  else {
+    let comp=s.match(/\b([01]?\d|2[0-3])([0-5]\d)\b/), one=s.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i), dur=s.match(/\b(\d+(?:\.\d+)?)\s*(h|hr|hrs|hour|hours|m|min|mins)\b/i);
+    if(one){ start=pClock(one[1],one[2],one[3]); s=s.replace(one[0],' '); }
+    else if(comp){ start=(+comp[1])+(+comp[2])/60; s=s.replace(comp[0],' '); }
+    let durH=null; if(dur){ const n=+dur[1]; durH=/^m/i.test(dur[2])?n/60:n; s=s.replace(dur[0],' '); }
+    if(start==null)start=Math.round(nowT()*2)/2;
+    end=start+(durH||1);
+  }
+  s=s.replace(/\b(hard|intense|deep|heavy|max|pr|grind|easy|chill|light|admin|rest|relax|recover|medium|med|moderate|at|from)\b/ig,' ').replace(/\s+/g,' ').trim();
+  start=((start%24)+24)%24; end=Math.max(start+0.25,Math.min(24,end));
+  return {id:'k_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),label:(s||'Task'),start,end,diff};
+}
+function addSched(str){ if(!str||!str.trim())return; const tasks=loadSched(); str.split(/,|;|\band\b/i).forEach(p=>{ const t=parseTask(p); if(t)tasks.push(t); }); tasks.sort((a,b)=>a.start-b.start); saveSched(tasks); }
+function removeSched(id){ saveSched(loadSched().filter(t=>t.id!==id)); }
+function curTask(){ const t=nowT(); return loadSched().find(x=>t>=x.start&&t<x.end)||null; }
+function nextTask(){ const t=nowT(); return loadSched().filter(x=>x.start>t).sort((a,b)=>a.start-b.start)[0]||null; }
+function fmtRange(a,b){ return clockOf(a)+' → '+clockOf(b); }
+function tToMsToday(t){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime()+t*3600000; }
+function bedCountdownMs(){ const {bed}=wakeBed(); let ms=tToMsToday(bed); if(ms<Date.now())ms+=86400000; return ms; }
+function msToHMS(ms){ ms=Math.max(0,ms); const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60),sec=s%60; return h>0?(h+'h '+m+'m'):(m+'m '+String(sec).padStart(2,'0')+'s'); }
+function tickCountdowns(){ const now=Date.now(); document.querySelectorAll('[data-countdown]').forEach(el=>{ el.textContent=msToHMS((+el.dataset.countdown)-now); }); }
+function taskBands(){ return loadSched().map(t=>{ const x0=xOf(t.start),x1=xOf(t.end); return '<rect x="'+x0.toFixed(1)+'" y="0" width="'+Math.max(2,x1-x0).toFixed(1)+'" height="'+(CH-PADB)+'" fill="'+diffColor(t.diff)+'" opacity=".07"/>'; }).join(''); }
+function scheduleHtml(){
+  const tasks=loadSched(), cur=curTask(), nxt=nextTask();
+  const input='<div class="schInputRow"><input id="schInput" class="schInput" placeholder="e.g. deep work 9 to 11 hard, gym 1930, read 30m" autocomplete="off"><button class="schAdd" data-addsched="1">＋ Add</button></div><div class="schHint">task · time · difficulty — green easy · amber medium · pink hard</div>';
+  const row = tasks.length ? '<div class="schRow">'+tasks.map(t=>'<span class="schChip" style="--dc:'+diffColor(t.diff)+'"><b>'+esc(t.label)+'</b><span class="schChipTime">'+clockOf(t.start)+'</span><span class="schX" data-rmsched="'+t.id+'">×</span></span>').join('')+'</div>' : '';
+  let nowBlock;
+  if(cur){ nowBlock='<div class="schNow"><div class="schNowTag" style="color:'+diffColor(cur.diff)+'">● Now · running</div><div class="schNowLabel">'+esc(cur.label)+'</div><div class="schNowTime">'+fmtRange(cur.start,cur.end)+'</div><div class="schCount">ends in <b class="cdVal" data-countdown="'+tToMsToday(cur.end)+'"></b></div>'+(nxt?'<div class="schNext"><span class="schNextDot"></span>Up next · <b>'+esc(nxt.label)+'</b> · '+clockOf(nxt.start)+'</div>':'')+'</div>'; }
+  else if(nxt){ nowBlock='<div class="schNow"><div class="schNowTag">○ Free time</div><div class="schNowLabel">Free until '+clockOf(nxt.start)+'</div><div class="schCount"><b class="cdVal" data-countdown="'+tToMsToday(nxt.start)+'"></b> until '+esc(nxt.label)+'</div></div>'; }
+  else { nowBlock='<div class="schNow"><div class="schNowTag">○ Free time</div><div class="schNowLabel">Nothing scheduled</div><div class="schCount"><b class="cdVal" data-countdown="'+bedCountdownMs()+'"></b> until bedtime</div></div>'; }
+  return '<div class="card schCard">'+input+row+nowBlock+'</div>';
+}
+function planLaneHtml(){
+  const tasks=loadSched(); const head='<p class="planLabel">Today’s plan</p>';
+  if(!tasks.length) return head+'<div class="planEmpty" data-planadd="1">Free — tap to plan your day around your peak</div>';
+  const summary='<button class="planToggle" data-plantoggle="1">'+tasks.length+' scheduled · view against your curve <span>'+(planOpen?'▲':'▼')+'</span></button>';
+  let drop='';
+  if(planOpen) drop='<div class="planDrop">'+tasks.map(t=>{ const e=Math.round(energyAt(t.start).e); return '<div class="planItem"><span class="planDot" style="background:'+diffColor(t.diff)+'"></span><span class="planItemL">'+esc(t.label)+'</span><span class="planItemTime">'+fmtRange(t.start,t.end)+'</span><span class="planItemPk">peak '+e+'</span></div>'; }).join('')+'</div>';
+  return head+summary+drop;
+}
+function bindSched(){ const i=document.getElementById('schInput'); if(i)i.addEventListener('keydown',e=>{ if(e.key==='Enter'){ addSched(i.value); } }); }
+
+/* ============================================================
  * Chart
  * ============================================================ */
 let CURVE=[]; let PEAK=null; let chartType='line';
@@ -693,7 +781,7 @@ function chartSvg(){
   // peak marker dot
   let pk='';
   if(PEAK){ const px=xOf(PEAK.t),py=yOf(PEAK.e); pk='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="4.5" fill="#0b110e" stroke="#34D399" stroke-width="2"/>'; }
-  return '<svg class="chartSvg" id="chartSvg" viewBox="0 0 '+CW+' '+CH+'" preserveAspectRatio="none">'+defs+gridLines()+sleepMarkers()+crashMarkers()+nowMarker()+body+pk+'</svg>';
+  return '<svg class="chartSvg" id="chartSvg" viewBox="0 0 '+CW+' '+CH+'" preserveAspectRatio="none">'+defs+gridLines()+taskBands()+sleepMarkers()+crashMarkers()+nowMarker()+body+pk+'</svg>';
 }
 function crashMarkers(){ const cc=caffeineCrash(), mc=medCrash(); let s='';
   const ln=t=>{ const x=xOf(t); return '<line x1="'+x.toFixed(1)+'" y1="0" x2="'+x.toFixed(1)+'" y2="'+(CH-PADB)+'" stroke="#EF4444" stroke-width="1.4" stroke-dasharray="4 4" opacity=".7"/>'; };
@@ -965,7 +1053,7 @@ function render(){
     + recs.map(r=>'<div class="recRow'+(r[0]?' warn':'')+'"><span class="recDot"></span><span class="recTxt"><b>'+esc(r[1])+'</b> '+esc(r[2])+'</span></div>').join('')
     +'</div>';
 
-  const nowSec='<div class="sec"><span class="secNum">02</span><span class="secTitle">Right now</span><span class="secLine"></span><button class="secI'+(infoOpen?' on':'')+'" id="infoBtn" title="How this is calculated">i</button></div>'
+  const nowSec='<div class="sec"><span class="secNum">03</span><span class="secTitle">Right now</span><span class="secLine"></span><button class="secI'+(infoOpen?' on':'')+'" id="infoBtn" title="How this is calculated">i</button></div>'
     + (infoOpen?infoCardHtml():'')
     +'<div class="nowGrid">'+scoreCard+todayCard+'</div>';
 
@@ -975,7 +1063,7 @@ function render(){
     +'<circle class="fl" id="peakFill" cx="42" cy="42" r="38" style="stroke-dasharray:'+c2+';stroke-dashoffset:'+(c2*(1-PEAK.e/100))+'"/></svg>'
     +'<div class="peakNum" id="peakNum">'+Math.round(PEAK.e)+'</div></div>';
   const sp=optimalSleep();
-  const sleepPlan='<div class="sleepPlan"><span class="spItem">🌙 Bed <b>'+clockOf(sp.bed)+'</b></span><span class="spDot">·</span><span class="spItem">☀️ Wake <b>'+clockOf(sp.wake)+'</b></span><span class="spNote">your optimal '+sp.need+'h sleep window</span></div>';
+  const sleepPlan='<div class="sleepPlan"><span class="spItem">🌙 Bed <b>'+clockOf(sp.bed)+'</b></span><span class="spDot">·</span><span class="spItem">☀️ Wake <b>'+clockOf(sp.wake)+'</b></span><span class="spNote"><b class="cdVal" data-countdown="'+bedCountdownMs()+'" style="color:var(--accent2)"></b> to bed · '+sp.need+'h target</span></div>';
   const cc=caffeineCrash(), mc=medCrash();
   let crashLabels='';
   if(cc) crashLabels+='<div class="crashMark" style="left:'+clamp(cc.t/24*100,6,94)+'%">☕ crash '+clockOf(cc.t)+'</div>';
@@ -990,19 +1078,20 @@ function render(){
     +'<div class="crashMarks">'+crashLabels+'</div>'
     +'<div class="scrubLine" id="scrubLine"></div><div class="scrubDot" id="scrubDot"></div><div class="scrubTip" id="scrubTip"></div></div>'
     +'<div class="xAxis">'+X_LABELS.map(l=>'<span>'+l+'</span>').join('')+'</div>'
-    +'<div class="plan"><p class="planLabel">Today’s plan</p><div class="planEmpty">Nothing scheduled · plan your day around your peak</div></div>'
+    +'<div class="plan">'+planLaneHtml()+'</div>'
     +'</div>';
   const daySec='<div class="sec"><span class="secNum">01</span><span class="secTitle">Your day</span><span class="secLine"></span></div>'+curveCard;
+  const schedSec='<div class="sec"><span class="secNum">02</span><span class="secTitle">Your schedule</span><span class="secLine"></span></div>'+scheduleHtml();
 
   // compact trackers — quick log + expandable search + link to the full page
-  const cafSec='<div class="sec"><span class="secNum">03</span><span class="secTitle">Caffeine</span><span class="secLine"></span></div>'+caffeineCardHtml();
-  const medSec='<div class="sec"><span class="secNum">04</span><span class="secTitle">Meds &amp; substances</span><span class="secLine"></span></div>'+medCardHtml();
-  const waterSec='<div class="sec"><span class="secNum">05</span><span class="secTitle">Water</span><span class="secLine"></span></div>'+waterCardHtml();
-  const suppSec='<div class="sec"><span class="secNum">06</span><span class="secTitle">Supplements</span><span class="secLine"></span></div>'+suppCardHtml();
+  const cafSec='<div class="sec"><span class="secNum">04</span><span class="secTitle">Caffeine</span><span class="secLine"></span></div>'+caffeineCardHtml();
+  const medSec='<div class="sec"><span class="secNum">05</span><span class="secTitle">Meds &amp; substances</span><span class="secLine"></span></div>'+medCardHtml();
+  const waterSec='<div class="sec"><span class="secNum">06</span><span class="secTitle">Water</span><span class="secLine"></span></div>'+waterCardHtml();
+  const suppSec='<div class="sec"><span class="secNum">07</span><span class="secTitle">Supplements</span><span class="secLine"></span></div>'+suppCardHtml();
 
   const footNote='<p class="footNote">Peak is a science-based estimate from your own data — not a medical measurement. It personalizes to you over ~30 days. Tap the “i” to see how it’s calculated. Meds are modeled for information only, never as dosing advice.</p>';
-  document.getElementById('app').innerHTML=head+srcRow+mCard+tk+daySec+nowSec+cafSec+medSec+waterSec+suppSec+footNote;
-  bindScrub(); bindFeel(); bindCaf(); bindMed();
+  document.getElementById('app').innerHTML=head+srcRow+mCard+tk+daySec+schedSec+nowSec+cafSec+medSec+waterSec+suppSec+footNote;
+  bindScrub(); bindFeel(); bindCaf(); bindMed(); bindSched(); tickCountdowns();
 }
 function feelBarHtml(){
   const f=latestFeelToday(); const val=f!=null?f:Math.round(energyAt(nowT()).e);
@@ -1180,6 +1269,10 @@ function startPulse(dur){
 }
 document.addEventListener('click',e=>{
   if(e.target.closest('#mSave')){ saveManual(); return; }
+  if(e.target.closest('[data-addsched]')){ const i=document.getElementById('schInput'); if(i)addSched(i.value); return; }
+  const rs=e.target.closest('[data-rmsched]'); if(rs){ removeSched(rs.dataset.rmsched); return; }
+  if(e.target.closest('[data-plantoggle]')){ planOpen=!planOpen; render(); return; }
+  if(e.target.closest('[data-planadd]')){ const el=document.getElementById('schInput'); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.focus(); } return; }
   const pb=e.target.closest('[data-pulse]'); if(pb){ startPulse(parseInt(pb.dataset.pulse,10)||30); return; }
   const rm=e.target.closest('[data-rmcaf]'); if(rm){ removeCaffLog(rm.dataset.rmcaf); return; }
   const cc=e.target.closest('[data-clearcaf]'); if(cc){ if(confirm('Clear all of today’s caffeine?')) clearCaffToday(); return; }
@@ -1210,6 +1303,7 @@ document.addEventListener('click',e=>{
 
 render();
 setInterval(()=>{ if(health())render(); }, 60000);
+setInterval(tickCountdowns, 1000); // live countdowns (now-running / free / bedtime)
 
 /* cloud hydrate — pull the day-log + refresh once the device snapshot lands */
 (async function(){ if(!window.PatronDB||!PatronDB.isCloud())return; try{
