@@ -144,6 +144,8 @@ body{ background:var(--bg); color:var(--fg); font-family:var(--ui); -webkit-font
 .scrubTip{ position:absolute; transform:translate(-50%,-130%); background:var(--panel2); border:1px solid var(--line2); border-radius:10px; padding:8px 12px; pointer-events:none; display:none; white-space:nowrap; backdrop-filter:blur(8px); }
 .scrubTip .v{ font-family:var(--serif); font-style:italic; font-size:18px; color:var(--accent); }
 .scrubTip .l{ font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-top:1px; }
+.sleepMarks{ position:absolute; top:0; left:0; right:0; height:0; pointer-events:none; }
+.sleepMark{ position:absolute; top:-6px; transform:translateX(-50%); font-family:var(--mono); font-size:9px; letter-spacing:.04em; color:var(--muted2); white-space:nowrap; background:var(--panel2); border:1px solid var(--line2); border-radius:7px; padding:3px 8px; }
 .xAxis{ display:flex; justify-content:space-between; margin-top:8px; padding:0 2px; }
 .xAxis span{ font-family:var(--mono); font-size:10px; letter-spacing:.08em; color:var(--muted); }
 
@@ -535,6 +537,8 @@ function energyAt(t){
 }
 function buildCurve(){ const a=[]; for(let t=0;t<=24;t+=0.5){ const v=energyAt(t); a.push({t,base:v.base,caf:v.caf,e:v.e}); } return a; }
 function peakOf(curve){ const {wake,bed}=wakeBed(); let best=curve[0]; for(const p of curve){ const inDay=bed>wake?(p.t>=wake&&p.t<=bed):(p.t>=wake||p.t<=bed); if(inDay&&p.e>best.e)best=p; } if(best.e<=2){ for(const p of curve)if(p.e>best.e)best=p; } return best; }
+// Optimal sleep window = the bedtime that banks your full sleep target before your wake.
+function optimalSleep(){ const h=health(); const wake=wakeBed().wake; const need=(h&&typeof h.sleepTargetHours==='number')?h.sleepTargetHours:8; const bed=((wake-need)%24+24)%24; return {bed:Math.round(bed*4)/4, wake:Math.round(wake*4)/4, need}; }
 
 /* ============================================================
  * Chart
@@ -551,6 +555,9 @@ function smoothPath(pts){
 }
 function gridLines(){ let g=''; for(let i=1;i<=3;i++){ const y=PADT+(i/4)*(CH-PADT-PADB); g+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+CW+'" y2="'+y.toFixed(1)+'" stroke="rgba(255,255,255,.05)" stroke-dasharray="2 5"/>'; } return g; }
 function nowMarker(){ const t=nowT(); const x=xOf(t); return '<line x1="'+x.toFixed(1)+'" y1="0" x2="'+x.toFixed(1)+'" y2="'+(CH-PADB)+'" stroke="rgba(255,255,255,.18)" stroke-dasharray="3 4"/>'; }
+function sleepMarkers(){ const {bed,wake}=optimalSleep();
+  const line=(t,col)=>{ const x=xOf(t); return '<line x1="'+x.toFixed(1)+'" y1="0" x2="'+x.toFixed(1)+'" y2="'+(CH-PADB)+'" stroke="'+col+'" stroke-width="1.2" stroke-dasharray="1 5" opacity=".6"/>'; };
+  return line(bed,'#6EE7B7')+line(wake,'#FBBF24'); }
 function chartSvg(){
   const defs='<defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#34D399" stop-opacity=".34"/><stop offset="100%" stop-color="#34D399" stop-opacity="0"/></linearGradient>'
     +'<linearGradient id="caf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FBBF24" stop-opacity=".4"/><stop offset="100%" stop-color="#FBBF24" stop-opacity=".02"/></linearGradient></defs>';
@@ -578,7 +585,7 @@ function chartSvg(){
   // peak marker dot
   let pk='';
   if(PEAK){ const px=xOf(PEAK.t),py=yOf(PEAK.e); pk='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="4.5" fill="#0b110e" stroke="#34D399" stroke-width="2"/>'; }
-  return '<svg class="chartSvg" id="chartSvg" viewBox="0 0 '+CW+' '+CH+'" preserveAspectRatio="none">'+defs+gridLines()+nowMarker()+body+pk+'</svg>';
+  return '<svg class="chartSvg" id="chartSvg" viewBox="0 0 '+CW+' '+CH+'" preserveAspectRatio="none">'+defs+gridLines()+sleepMarkers()+nowMarker()+body+pk+'</svg>';
 }
 const X_LABELS=['12A','3A','6A','9A','12P','3P','6P','9P','12A'];
 
@@ -848,9 +855,10 @@ function render(){
     +'<div class="peakNum" id="peakNum">'+Math.round(PEAK.e)+'</div></div>';
   const curveCard='<div class="card curveCard"><div class="curveTop">'+peakRing
     +'<div class="curveLabel"><div class="curveTitleRow"><span class="curveWord" id="curveWord">Peak</span><span class="curveAt" id="curveAt">at '+clockOf(PEAK.t)+'</span><span class="curveScrub" id="curveScrub"><span class="d"></span>Scrubbing</span></div>'
-    +'<p class="curveDesc"><span class="curveEyebrow">Today’s energy curve</span><br>Your predicted score, hour by hour. Hover or drag across the curve to scrub.</p></div>'
+    +'<p class="curveDesc"><span class="curveEyebrow">Today’s energy curve</span><br>Your predicted score, hour by hour. Hover or drag to scrub. <span style="color:var(--accent2)">🌙 '+clockOf(optimalSleep().bed)+'</span> → <span style="color:var(--warn)">☀️ '+clockOf(optimalSleep().wake)+'</span> · optimal '+optimalSleep().need+'h sleep.</p></div>'
     +'<div class="seg">'+['line','bars','stack'].map(t=>'<button class="segBtn '+(chartType===t?'on':'')+'" data-chart="'+t+'">'+t+'</button>').join('')+'</div></div>'
     +'<div class="chartWrap" id="chartWrap">'+chartSvg()
+    +'<div class="sleepMarks"><div class="sleepMark" style="left:'+clamp(optimalSleep().bed/24*100,5,95)+'%">🌙 '+clockOf(optimalSleep().bed)+'</div><div class="sleepMark" style="left:'+clamp(optimalSleep().wake/24*100,5,95)+'%">☀️ '+clockOf(optimalSleep().wake)+'</div></div>'
     +'<div class="scrubLine" id="scrubLine"></div><div class="scrubDot" id="scrubDot"></div><div class="scrubTip" id="scrubTip"></div></div>'
     +'<div class="xAxis">'+X_LABELS.map(l=>'<span>'+l+'</span>').join('')+'</div>'
     +'<div class="plan"><p class="planLabel">Today’s plan</p><div class="planEmpty">Nothing scheduled · plan your day around your peak</div></div>'
