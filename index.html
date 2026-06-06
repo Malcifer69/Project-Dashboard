@@ -336,13 +336,12 @@ const APPS = [
   { file: 'finance.html',     name: 'Finance',     tag: 'Net worth · subs · orders · wishlist', icon: '💰', wide: true },
   { file: 'gym.html',         name: 'Gym',         tag: 'Progressive overload coach',           icon: '🏋️', wide: true },
   { file: 'enhancers.html',   name: 'Enhancers',   tag: 'Supplements · stimulants · meds',       icon: '💊', wide: true },
+  { file: 'food.html',        name: 'Food & Water', tag: 'Hydration target · daily macros',       icon: '🥤', wide: true },
   { file: 'whoop.html',       name: 'Fitness Band', tag: 'Whoop · Fitbit · Apple Watch sync',      icon: '🔋' },
   { file: 'recovery.html',    name: 'Recovery',    tag: 'Readiness · sleep · trends',            icon: '🔄' },
-  { file: 'water.html',       name: 'Water',       tag: 'Daily hydration target',                icon: '💧' },
   { file: 'creator.html',     name: 'Creator',     tag: 'Schedule · accounts · analytics',       icon: '🎬' },
   { file: 'goals.html',       name: 'Goals',       tag: 'Goals & streaks',                       icon: '🎯' },
   { file: 'progress.html',    name: 'Progress',    tag: 'Photos & measurements',                 icon: '📈' },
-  { file: 'macros.html',      name: 'Macros',      tag: 'Protein · carbs · fat',                 icon: '🍳' },
 ];
 
 /* ============================================================
@@ -571,6 +570,7 @@ function statFor(file){
     else if (file === 'supplements.html') { const s = lsGet('supplements_standalone_v1'); if (s && Array.isArray(s.items) && s.items.length) { const tk = (s.taken && s.taken[activeDateKey()]) || {}; const n = s.items.filter(i => tk[i.id]).length; return { value: n + '/' + s.items.length, label: 'taken today' }; } }
     else if (file === 'enhancers.html') { const s = lsGet('supplements_standalone_v1'); if (s && Array.isArray(s.items) && s.items.length) { const tk = (s.taken && s.taken[activeDateKey()]) || {}; const n = s.items.filter(i => tk[i.id]).length; return { value: n + '/' + s.items.length, label: 'supplements today' }; } const c = lsGet('stimulant_standalone_v1'); if (c && Array.isArray(c.logs)) { const k = localDateKey(); const mg = c.logs.filter(l => l && localDateKey(new Date(l.t)) === k).reduce((a,l)=>a+(Number(l.mg)||0),0); if (mg>0) return { value: mg + ' mg', label: 'caffeine today' }; } }
     else if (file === 'water.html') { const s = lsGet('water_standalone_v1'); if (s && s.logs) { const n = s.logs[localDateKey()] || 0; return { value: String(n), label: (n === 1 ? 'drink' : 'drinks') + ' today' }; } }
+    else if (file === 'food.html') { const m = lsGet('macros_standalone_v1'); const log = m && m[localDateKey()]; if (Array.isArray(log) && log.length) { const cal = log.reduce((a,e)=>a+(Number(e.cal)||0),0); return { value: fmtNum(cal), label: 'kcal today' }; } const w = lsGet('water_standalone_v1'); if (w && w.logs) { const n = w.logs[localDateKey()] || 0; if (n>0) return { value: String(n), label: (n === 1 ? 'drink' : 'drinks') + ' today' }; } }
     else if (file === 'stimulant.html') { const s = lsGet('stimulant_standalone_v1'); if (s && Array.isArray(s.logs)) { const k = localDateKey(); const mg = s.logs.filter(l => l && localDateKey(new Date(l.t)) === k).reduce((a,l)=>a+(Number(l.mg)||0),0); if (mg>0) return { value: mg + ' mg', label: 'caffeine today' }; } }
     else if (file === 'whoop.html') { const rec = estRecovery(health); if (rec != null) return { value: Math.round(rec) + '%', label: isEstRecovery(health) ? 'recovery · est' : 'recovery' }; }
     else if (file === 'recovery.html') { const rec = estRecovery(health); if (rec != null) return { value: Math.round(rec) + '%', label: 'recovery' }; }
@@ -594,6 +594,7 @@ const ART = {
   'peak-demo.html':'linear-gradient(135deg,#34D399,#22D3EE)',
   'meds.html':'linear-gradient(135deg,#34D399,#22D3EE)',
   'enhancers.html':'linear-gradient(135deg,#6EE7B7,#22D3EE)',
+  'food.html':'linear-gradient(135deg,#22D3EE,#6EE7B7)',
 };
 function artFor(file){ return ART[file] || 'linear-gradient(135deg,#8B5CF6,#22D3EE)'; }
 /* Animated neon icons live in icons.js (window.DASH_ICONS), keyed by page. */
