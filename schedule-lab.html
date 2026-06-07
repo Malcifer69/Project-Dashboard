@@ -68,6 +68,22 @@
   .pill.outline { background:rgba(0,0,0,.4); border:1px solid var(--pc); color:var(--pc); padding:6px 12px; border-radius:10px; }
   .pill.minimal { background:transparent; color:var(--pc); padding:2px; }
   .pill.minimal .nm { text-shadow:0 0 10px var(--pc); }
+  /* per-task number, fitted time-range, lock state */
+  .pill { max-width:185px; }
+  .pill .no { display:inline-grid; place-items:center; min-width:15px; height:15px; padding:0 3px; border-radius:7px; font-family:var(--mono); font-size:9px; font-weight:700; color:#fff; background:rgba(0,0,0,.5); flex:none; }
+  .pill.solid .no { background:rgba(0,0,0,.32); }
+  .pill .nm { overflow:hidden; text-overflow:ellipsis; max-width:96px; }
+  .pill .tm { font-family:var(--mono); font-size:9.5px; opacity:.72; letter-spacing:.01em; flex:none; }
+  .pill.movable { cursor:grab; }
+  .pill.movable:active, .pill.dragging { cursor:grabbing; }
+  .pill.locked { cursor:default; }
+  /* lock toggle pinned to the bottom of each task's band on the graph */
+  .lockBtn { position:absolute; bottom:5px; transform:translateX(-50%); z-index:5; pointer-events:auto; cursor:pointer;
+    width:22px; height:21px; display:grid; place-items:center; font-size:10px; line-height:1; padding:0;
+    background:rgba(4,6,5,.7); border:1px solid var(--line); border-radius:7px; transition:border-color .15s, transform .12s; }
+  .lockBtn:hover { transform:translateX(-50%) scale(1.12); }
+  .lockBtn.on { border-color:rgba(255,255,255,.32); }
+  .lockBtn:not(.on) { border-color:rgba(110,231,183,.55); box-shadow:0 0 10px -3px var(--acc); }
 
   /* ---- now marker ---- */
   .nowline { position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,.45); }
@@ -114,7 +130,9 @@
 
   /* ---- task editor ---- */
   .tasks { margin-top:14px; border-top:1px solid var(--line); padding-top:14px; }
-  .trow { display:grid; grid-template-columns:16px 1fr 38px 38px 56px 16px; align-items:center; gap:6px; margin-bottom:7px; font-size:12px; }
+  .trow { display:grid; grid-template-columns:16px 1fr 36px 36px 50px 24px 16px; align-items:center; gap:6px; margin-bottom:7px; font-size:12px; }
+  .trLock { background:var(--card); border:1px solid var(--line); border-radius:7px; cursor:pointer; padding:4px 0; font-size:11px; line-height:1; }
+  .trLock.on { border-color:rgba(255,255,255,.28); } .trLock:not(.on){ border-color:rgba(110,231,183,.5); }
   .trow input[type=text] { background:var(--card); border:1px solid var(--line); color:var(--fg); border-radius:7px; padding:5px 7px; font-size:12px; min-width:0; }
   .trow input[type=number] { width:38px; background:var(--card); border:1px solid var(--line); color:var(--fg); border-radius:7px; padding:5px 4px; font-size:12px; }
   .trow select { background:var(--card); border:1px solid var(--line); color:var(--fg); border-radius:7px; padding:5px 3px; font-size:11px; min-width:0; }
@@ -402,6 +420,10 @@ function xPct(h){ return h/24*100; }
 function yPct(v){ return (TOP+(BOT-TOP)*(1-v))/VH*100; }
 function fmt(h){ var H=Math.floor(h), m=Math.round((h-H)*60); if(m===60){H++;m=0;} var ap=H<12?'AM':'PM', hr=H%12; if(hr===0)hr=12; return hr+':'+(m<10?'0'+m:m)+ap; }
 function dur(t){ var d=t.end-t.start, hh=Math.floor(d), mm=Math.round((d-hh)*60); return (hh?hh+'h':'')+(mm?mm+'m':''); }
+/* compact clock + range: 14→"2pm", 14.25→"2:15pm"; range drops the am/pm on the
+ * first end when both share it → "2–4pm", "11am–1pm", "2:15–3:15pm". */
+function fmtT(h){ h=((h%24)+24)%24; var H=Math.floor(h), m=Math.round((h-H)*60); if(m===60){H++;m=0;} var ap=H<12?'am':'pm'; var hr=H%12; if(hr===0)hr=12; return hr+(m?':'+(m<10?'0'+m:m):'')+ap; }
+function fmtRange(a,b){ var A=fmtT(a), B=fmtT(b); if(A.slice(-2)===B.slice(-2)) A=A.slice(0,-2); return A+'–'+B; }
 
 /* ---------- chart (smooth area + line) ---------- */
 function pts(){ return DATA.map(function(v,i){ var x=VW*(i/(DATA.length-1)); var y=TOP+(BOT-TOP)*(1-v); return [x,y]; }); }
@@ -447,15 +469,24 @@ function drawChart(){
 /* ---------- tasks ---------- */
 // difficulty colors mirror the Peak tracker (hard = pink, med = amber, easy = mint)
 var DIFF={ easy:'#6EE7B7', med:'#F59E0B', hard:'#FF50A6' };
+// Distinct, vivid colors assigned by a task's order in the day, so adjacent tasks
+// never share a shade. Used by the default "auto" color mode.
+var PALETTE=['#6EE7B7','#F59E0B','#EC4899','#22D3EE','#A78BFA','#FB7185','#FBBF24','#34D399','#60A5FA','#F472B6'];
+function dayColor(i){ var n=PALETTE.length; return PALETTE[(((i||0)%n)+n)%n]; }
+// locked = pinned to a fixed time (can't move or be overlapped); movable = duration
+// task that auto-places and can be dragged. Two of each by default for the demo.
 var TASKS=[
-  { id:'t1', name:'Morning',  start:6,   end:8,    color:'#6EE7B7', icon:'☀', diff:'easy', explicit:true },
-  { id:'t2', name:'Claude',   start:9,   end:11.5, color:'#A78BFA', icon:'✦', diff:'med',  explicit:true },
-  { id:'t3', name:'Homework', start:13,  end:15.5, color:'#F59E0B', icon:'✎', diff:'hard', explicit:true },
-  { id:'t4', name:'Wind down',start:21.5,end:23,   color:'#38BDF8', icon:'☾', diff:'easy', explicit:true }
+  { id:'t1', name:'Morning',  start:6,   end:8,    color:'#6EE7B7', icon:'☀', diff:'easy', explicit:true, locked:true },
+  { id:'t2', name:'Claude',   start:9,   end:11.5, color:'#A78BFA', icon:'✦', diff:'med',  explicit:true, locked:false },
+  { id:'t3', name:'Homework', start:13,  end:15.5, color:'#F59E0B', icon:'✎', diff:'hard', explicit:true, locked:false },
+  { id:'t4', name:'Wind down',start:21.5,end:23,   color:'#38BDF8', icon:'☾', diff:'easy', explicit:true, locked:true }
 ];
 
 /* ---------- style state ---------- */
 var S={ fill:'grad', colorMode:'auto', acc:'#6EE7B7', op:0.18, rad:10, pill:'glass', pos:'top', bd:true, icon:true, dur:true, now:true, valcol:false, nowH:13.46, bed:22.75 };
+// armed-window state — declared up here so the first drawBands()/gapWindow() call can read them
+var selIds=[];   // up to two "armed" chips — typing a task fills the gap between them
+var armWin=null; // a window armed by clicking a free stretch of the chart
 
 // every task gets a distinct, evenly-spread hue assigned ONCE when it's first
 // seen and stored on the rule (cseed) — so a task keeps the same shade forever,
@@ -522,13 +553,14 @@ function parseTask(str){
     durH=durH||1; if(explicit){ end=start+durH; }
   }
   s=s.replace(/\b(hard|intense|deep|heavy|max|pr|grind|easy|chill|light|admin|rest|relax|recover|medium|med|moderate|fill|full|at|from)\b/ig,' ').replace(/\s+/g,' ').trim();
-  return {id:uid('k_'),name:(s||'Task'),diff:diff,color:diffColor(diff),icon:'●',durH:durH||1,explicit:explicit,start:start,end:end,fill:fillFlag};
+  // pinned to a time ("4-6pm", "gym 1930") → locked; duration only ("homework 1hr") → movable
+  return {id:uid('k_'),name:(s||'Task'),diff:diff,color:diffColor(diff),icon:'●',durH:durH||1,explicit:explicit,locked:explicit,start:start,end:end,fill:fillFlag};
 }
 function taskDur(t){ return (t&&t.durH&&t.durH>0)?t.durH:((t&&t.start!=null&&t.end!=null)?Math.max(0.25,t.end-t.start):1); }
 function freeWithin(a,b,occupied){ var segs=[[a,b]];
   occupied.slice().sort(function(x,y){return x.start-y.start;}).forEach(function(o){ var out=[]; segs.forEach(function(p){ var s=p[0],e=p[1]; if(o.end<=s||o.start>=e){out.push([s,e]);return;} if(o.start>s)out.push([s,o.start]); if(o.end<e)out.push([o.end,e]); }); segs=out; }); return segs.filter(function(g){return g[1]-g[0]>0.12;}); }
 function effectiveSegments(){ var items=TASKS, bed=S.bed, wake=WAKE, SMALL_MAX=1.5;
-  var fixed=items.filter(function(t){return !t.gap&&t.start!=null;}).map(function(t){return {id:t.id,name:t.name,diff:t.diff,color:t.color,start:t.start,end:t.end,gap:false};});
+  var fixed=items.filter(function(t){return !t.gap&&t.start!=null;}).map(function(t){return {id:t.id,name:t.name,diff:t.diff,color:t.color,start:t.start,end:t.end,gap:false,locked:!!t.locked};});
   var occupied=fixed.map(function(f){return {start:f.start,end:f.end};}); var segs=fixed.slice();
   function fill(rule,onlySmall){ var a=Math.max(rule.rStart!=null?rule.rStart:wake,wake), b=Math.min(rule.rEnd!=null?rule.rEnd:bed,bed);
     freeWithin(a,b,occupied).forEach(function(g){ if(onlySmall&&(g[1]-g[0])>SMALL_MAX)return; segs.push({id:rule.id+'_'+occupied.length,name:rule.name,diff:rule.diff,color:rule.color,start:g[0],end:g[1],gap:true}); occupied.push({start:g[0],end:g[1]}); }); }
@@ -566,8 +598,11 @@ function drawBands(){
   var SEG=effectiveSegments(); var pills=[];
   var gw=gapWindow();
   if(gw && gw.hi>gw.lo+0.05){ var ab=document.createElement('div'); ab.className='armBand'; ab.style.left=xPct(gw.lo)+'%'; ab.style.width=xPct(gw.hi-gw.lo)+'%'; ab.innerHTML='<span class="armLbl">fill window</span>'; ov.appendChild(ab); }
+  var no=0;
   SEG.forEach(function(t){
-    var col=taskColor(t);
+    var isTask=!t.gap; if(isTask) no++;            // number tasks in day order
+    // distinct, neighbour-contrasting color by day order (auto mode); else the chosen mode
+    var col=(S.colorMode==='auto'&&isTask)?dayColor(no-1):taskColor(t);
     var band=document.createElement('div');
     band.className='band'+(S.bd?' bd':'')+(t.gap?' gapband':'');
     band.style.left=xPct(t.start)+'%';
@@ -581,15 +616,27 @@ function drawBands(){
     ov.appendChild(band);
 
     var pill=document.createElement('div');
-    pill.className='pill '+S.pill+(t.gap?' gap':'');
-    if(!t.gap) pill.dataset.taskid=t.id;
+    pill.className='pill '+S.pill+(t.gap?' gap':(t.locked?' locked':' movable'));
+    if(isTask) pill.dataset.taskid=t.id;
     pill.style.setProperty('--pc', col);
     var html='';
+    if(isTask) html+='<span class="no">'+no+'</span>';
     if(S.icon && t.icon) html+='<span class="ic">'+t.icon+'</span>';
     html+='<span class="nm">'+keyword(t.name)+'</span>';
-    if(S.dur && !t.gap) html+='<span class="dur">'+dur(t)+'</span>';
+    if(isTask) html+='<span class="tm">'+fmtRange(t.start,t.end)+'</span>';   // fitted time range, e.g. 2–4pm
+    else if(S.dur) html+='<span class="dur">'+dur(t)+'</span>';
     pill.innerHTML=html;
     ov.appendChild(pill);
+
+    if(isTask){                                     // lock toggle pinned to the bottom of the band
+      var lb=document.createElement('button');
+      lb.className='lockBtn'+(t.locked?' on':'');
+      lb.dataset.lock=t.id;
+      lb.title=t.locked?'Locked at '+fmtRange(t.start,t.end)+' — click to unlock & drag':'Movable — click to lock at this time';
+      lb.textContent=t.locked?'🔒':'🔓';
+      lb.style.left=((t.start+t.end)/2)/24*100+'%';
+      ov.appendChild(lb);
+    }
     pills.push({ el:pill, centerPct:((t.start+t.end)/2)/24*100, startPct:t.start/24, endPct:t.end/24, pos:S.pos });
   });
 
@@ -656,13 +703,21 @@ function dodgeBubble(bub, nxPct){
 /* drag a task's pill along the chart to reschedule (snaps into a free slot) */
 function bindBandDrag(){
   var ov=document.getElementById('overlay');
+  // lock / unlock toggles on the graph
+  ov.querySelectorAll('.lockBtn[data-lock]').forEach(function(b){
+    b.addEventListener('click',function(e){ e.stopPropagation(); var t=TASKS.filter(function(x){return x.id===b.dataset.lock;})[0]; if(t){ t.locked=!t.locked; drawEditor(); drawBands(); } });
+  });
+  // only movable (unlocked) tasks can be dragged; locked ones stay put and can't be overlapped
   ov.querySelectorAll('.pill[data-taskid]').forEach(function(el){
+    var id=el.dataset.taskid; var t=TASKS.filter(function(x){return x.id===id;})[0];
+    if(!t||t.locked){ el.style.cursor='default'; return; }
     el.style.pointerEvents='auto'; el.style.cursor='grab';
     el.addEventListener('pointerdown',function(e){
-      e.preventDefault(); var id=el.dataset.taskid; var t=TASKS.filter(function(x){return x.id===id;})[0]; if(!t)return;
-      var d=taskDur(t); var others=TASKS.filter(function(x){return !x.gap&&x.id!==id;});
-      var r=ov.getBoundingClientRect(); el.classList.add('dragging'); var ns=t.start;
-      function move(ev){ var x=clamp((ev.clientX-r.left)/r.width,0,1); ns=snapFree(x*24-d/2, d, others); el.style.left=(((ns+d/2)/24)*r.width)+'px'; }
+      e.preventDefault();
+      var d=taskDur(t); var others=TASKS.filter(function(x){return !x.gap&&x.id!==id;});  // every other task is an obstacle → no overlap
+      var r=ov.getBoundingClientRect(); el.classList.add('dragging'); var ns=t.start; var tm=el.querySelector('.tm');
+      // snapFree rounds the start into the nearest free 15-min slot (Math.round(x*4)/4)
+      function move(ev){ var x=clamp((ev.clientX-r.left)/r.width,0,1); ns=snapFree(x*24-d/2, d, others); el.style.left=(((ns+d/2)/24)*r.width)+'px'; if(tm)tm.textContent=fmtRange(ns,ns+d); }
       function up(){ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); el.classList.remove('dragging'); t.start=ns; t.end=Math.min(24,ns+d); t.durH=d; t.explicit=true; TASKS.sort(function(a,b){return a.start-b.start;}); drawEditor(); drawBands(); }
       document.addEventListener('pointermove',move); document.addEventListener('pointerup',up);
     });
@@ -680,6 +735,7 @@ function drawEditor(){
       +'<input type="number" step="0.5" min="0" max="24" value="'+t.start+'" />'
       +'<input type="number" step="0.5" min="0" max="24" value="'+t.end+'" />'
       +'<select>'+opts+'</select>'
+      +'<button class="trLock'+(t.locked?' on':'')+'" title="'+(t.locked?'Locked at a fixed time':'Movable — drag on the graph')+'">'+(t.locked?'🔒':'🔓')+'</button>'
       +'<span class="rm">✕</span>';
     var ins=row.querySelectorAll('input');
     ins[0].addEventListener('input',function(){ t.color=this.value; redraw(); });
@@ -687,11 +743,12 @@ function drawEditor(){
     ins[2].addEventListener('input',function(){ t.start=parseFloat(this.value)||0; redraw(); });
     ins[3].addEventListener('input',function(){ t.end=parseFloat(this.value)||0; redraw(); });
     row.querySelector('select').addEventListener('change',function(){ t.diff=this.value; redraw(); });
+    row.querySelector('.trLock').addEventListener('click',function(){ t.locked=!t.locked; drawEditor(); drawBands(); });
     row.querySelector('.rm').addEventListener('click',function(){ TASKS.splice(i,1); drawEditor(); drawBands(); });
     box.appendChild(row);
   });
   var add=document.createElement('button'); add.className='addBtn'; add.textContent='+ add task';
-  add.addEventListener('click',function(){ TASKS.push({id:uid('k_'),name:'New task',start:16,end:18,color:'#6EE7B7',icon:'●',diff:'med',explicit:true}); drawEditor(); drawBands(); });
+  add.addEventListener('click',function(){ TASKS.push({id:uid('k_'),name:'New task',start:16,end:18,color:'#6EE7B7',icon:'●',diff:'med',explicit:true,locked:true}); drawEditor(); drawBands(); });
   box.appendChild(add);
 }
 
@@ -744,8 +801,6 @@ drawChart(); drawBands(); drawEditor();
  * SCHEDULE UI KIT
  * ============================================================ */
 var S2={ input:'glass', chip:'bar', card:'outline', badge:'pill', div:true, times:true, anim:'pop', spd:0.5 };
-var selIds=[]; // up to two "armed" chips — typing a task fills the gap between them
-var armWin=null; // a window armed by clicking a free stretch of the chart
 function byId(id){ return TASKS.filter(function(x){return x.id===id;})[0]; }
 function gapWindow(){
   if(armWin) return { lo:armWin.lo, hi:armWin.hi, first:{name:'free'}, second:{name:'free'}, free:true };
