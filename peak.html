@@ -744,7 +744,7 @@ const SCHED='peak_schedule_v1'; let planOpen=false;
  * stale saved tasks once (the file is the source of truth, like the style),
  * while still letting you add/drag/edit in Peak afterwards (your edits save
  * under today's key with the current seed and win until the next day or ship). */
-const SCHED_SEED='lab-2026-06-07e';
+const SCHED_SEED='lab-2026-06-07f';
 const DEFAULT_SCHED=[
   { id:'t1', label:'Morning',   start:6,    end:8,    durH:2,   color:'#6EE7B7', icon:'☀', diff:'easy', locked:true,  explicit:true, gap:false },
   { id:'t2', label:'Claude',    start:9,    end:11.5, durH:2.5, color:'#A78BFA', icon:'✦', diff:'med',  locked:false, explicit:true, gap:false },
@@ -944,7 +944,7 @@ function bindTaskDrag(){ const wrap=document.getElementById('chartWrap'), svg=do
   }); }); }
 function scheduleHtml(){
   const tasks=loadSched(), cur=curTask(), nxt=nextTask();
-  const input='<div class="schInputRow"><input id="schInput" class="schInput" placeholder="e.g. school 8-2, gym 1930 hard, gap claude" autocomplete="off"><button class="schAdd" data-addsched="1">＋ Add</button></div><div class="schHint">fixed task = give a time (9-11) · “big gap claude” fills your whole free day · “small gap homework” fills only the short windows between tasks · gaps never touch sleep · easy/medium/hard = color</div>';
+  const input='<div class="schInputRow"><input id="schInput" class="schInput" placeholder="e.g. school 8-2, gym 1930 hard, gap claude" autocomplete="off"><button class="schAdd" data-addsched="1">＋ Add</button></div><div class="schHint">fixed task = give a time (9-11) · “big gap claude” fills your whole free day · “small gap homework” fills only the short windows between tasks · gaps never touch sleep · easy/medium/hard = color <span style="opacity:.6">· build '+SCHED_SEED+'</span></div>';
   // workout nudge: you've trained recently but not today
   const wOut = (!gymLoggedToday() && gymDaysLast7()>=1) ? '<div class="schWorkout"><button class="schWoBtn" data-workout="1">🏋️ You’ve been training — work out today?</button>'+(workoutOpen?'<div class="schWoOpts">'+[['45m',0.75],['1h',1],['1h 30m',1.5],['2h',2]].map(o=>'<button class="schWoOpt" data-addworkout="'+o[1]+'">'+o[0]+'</button>').join('')+'</div>':'')+'</div>' : '';
   const row = tasks.length ? '<div class="schRow">'+tasks.map(t=>{ const time = t.gap ? (t.rStart!=null?clockOf(t.rStart)+'–'+clockOf(t.rEnd):(t.size==='small'?'small gaps':'fills day')) : clockOf(t.start);
