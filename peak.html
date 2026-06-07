@@ -375,7 +375,7 @@ body{ background:var(--bg); color:var(--fg); font-family:var(--ui); -webkit-font
 .schThemeToggle:hover{ color:var(--fg); }
 .schThemeToggle.active{ color:var(--accent2); }
 .schThemeRow{ display:flex; gap:8px; margin-top:10px; }
-.schThemeIn{ flex:1; background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 13px; color:var(--fg); font-family:var(--mono); font-size:12px; }
+.schThemeIn{ flex:1; background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 13px; color:var(--fg); font-family:var(--mono); font-size:12px; resize:vertical; min-height:40px; line-height:1.45; box-sizing:border-box; }
 .schThemeIn:focus{ outline:none; border-color:var(--accent); }
 .schThemeApply{ appearance:none; cursor:pointer; padding:0 16px; border:1px solid var(--accent); border-radius:var(--radius-sm); font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--accent2); background:rgba(110,231,183,.08); }
 .schThemeHint{ margin-top:7px; font-family:var(--mono); font-size:10px; color:var(--muted); }
@@ -1125,7 +1125,7 @@ function scheduleHtml(){
   const _hasTheme=!!loadTheme();
   const themeBlock='<div class="schTheme">'
     +'<button class="schThemeToggle'+(themeOpen?' on':'')+(_hasTheme?' active':'')+'" data-themeimport="1">🎨 '+(_hasTheme?'Creator theme active':'Import a creator theme')+'</button>'
-    +(themeOpen?'<div class="schThemeRow"><input id="themeCode" class="schThemeIn" placeholder="Paste a theme or graph code…" autocomplete="off"><button class="schThemeApply" data-themeapply="1">Apply</button></div>'
+    +(themeOpen?'<div class="schThemeRow"><textarea id="themeCode" class="schThemeIn" placeholder="Paste a theme or graph code…" rows="2" autocomplete="off"></textarea><button class="schThemeApply" data-themeapply="1">Apply</button></div>'
       +'<div class="schThemeHint">Paste a Schedule Lab <b>theme code</b> (color, background, cards) or a Graph Lab <b>graph code</b> (bars, stepped, dotted, glow)'+(_hasTheme?' <button class="schThemeReset" data-themereset="1">· reset to default</button>':'')+'</div>':'')
     +'</div>';
   const input='<div class="schInputRow"><input id="schInput" class="schInput" placeholder="e.g. school 8-2, gym 1930 hard, gap claude" autocomplete="off"><button class="schAdd" data-addsched="1">＋ Add</button></div><div class="schHint">fixed task = give a time (9-11) · “big gap claude” fills your whole free day · “small gap homework” fills only the short windows between tasks · gaps never touch sleep · easy/medium/hard = color <span style="opacity:.6">· build '+SCHED_SEED+'</span></div>'+themeBlock;
