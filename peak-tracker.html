@@ -770,13 +770,8 @@ const SCHED='peak_schedule_sa_v1'; let planOpen=false;  // standalone uses its O
  * stale saved tasks once (the file is the source of truth, like the style),
  * while still letting you add/drag/edit in Peak afterwards (your edits save
  * under today's key with the current seed and win until the next day or ship). */
-const SCHED_SEED='lab-2026-06-07j-FIXED';
-const DEFAULT_SCHED=[
-  { id:'t1', label:'Morning',   start:6,    end:8,    durH:2,   color:'#6EE7B7', icon:'☀', diff:'easy', locked:true,  explicit:true, gap:false },
-  { id:'t2', label:'Claude',    start:9,    end:11.5, durH:2.5, color:'#A78BFA', icon:'✦', diff:'med',  locked:false, explicit:true, gap:false },
-  { id:'t3', label:'Homework',  start:13,   end:15.5, durH:2.5, color:'#F59E0B', icon:'✎', diff:'hard', locked:false, explicit:true, gap:false },
-  { id:'t4', label:'Wind down', start:21.5, end:23,   durH:1.5, color:'#38BDF8', icon:'☾', diff:'easy', locked:true,  explicit:true, gap:false }
-];
+const SCHED_SEED='lab-2026-06-07k-FIXED';
+const DEFAULT_SCHED=[];
 /* one-time cleanup: physically drop a schedule saved by an older build (seed
  * mismatch) so stale/overlapping tasks can't linger in localStorage. */
 try{ const _r=readLS(SCHED); if(_r&&_r.seed!==SCHED_SEED){ localStorage.removeItem(SCHED); } }catch(e){}
