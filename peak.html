@@ -787,7 +787,7 @@ try{ const _r=readLS(SCHED); if(_r&&_r.seed!==SCHED_SEED){ localStorage.removeIt
 /* one-time hard reset: clears any saved schedule (and its dead cloud mirror) ONCE
  * per browser, then sets a flag so your later edits stick. Bump SCHED_NUKE to force
  * a fresh wipe everywhere — used to clear the stuck 6:45 schedule on existing devices. */
-const SCHED_NUKE='peak_sched_nuke_v1';
+const SCHED_NUKE='peak_sched_nuke_v2';
 try{ if(localStorage.getItem('peak_sched_nuked')!==SCHED_NUKE){ localStorage.removeItem(SCHED); localStorage.removeItem('patron_db_peaksched'); localStorage.setItem('peak_sched_nuked',SCHED_NUKE); } }catch(e){}
 /* Defensive heal: tasks must NEVER overlap on screen — not even if older/stale
  * saved data (or a cloud restore) stacked several onto 6:45. Locked tasks hold
