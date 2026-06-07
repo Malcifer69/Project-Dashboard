@@ -3,11 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<link rel="manifest" href="manifest.webmanifest" />
 <meta name="theme-color" content="#05080a" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Liam" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
 <title>Peak · Liam</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -372,7 +375,7 @@ body{ background:var(--bg); color:var(--fg); font-family:var(--ui); -webkit-font
 .schThemeToggle:hover{ color:var(--fg); }
 .schThemeToggle.active{ color:var(--accent2); }
 .schThemeRow{ display:flex; gap:8px; margin-top:10px; }
-.schThemeIn{ flex:1; background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 13px; color:var(--fg); font-family:var(--mono); font-size:12px; }
+.schThemeIn{ flex:1; background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 13px; color:var(--fg); font-family:var(--mono); font-size:12px; resize:vertical; min-height:40px; line-height:1.45; box-sizing:border-box; }
 .schThemeIn:focus{ outline:none; border-color:var(--accent); }
 .schThemeApply{ appearance:none; cursor:pointer; padding:0 16px; border:1px solid var(--accent); border-radius:var(--radius-sm); font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--accent2); background:rgba(110,231,183,.08); }
 .schThemeHint{ margin-top:7px; font-family:var(--mono); font-size:10px; color:var(--muted); }
@@ -442,7 +445,6 @@ body{ background:var(--bg); color:var(--fg); font-family:var(--ui); -webkit-font
 </main>
 <div id="modalRoot"></div>
 
-<!-- standalone build: no cloud sync. All data stays on this device (localStorage). -->
 <script>
 /* ============================================================
  * PEAK TRACKER — one place for all vitals.
@@ -764,7 +766,7 @@ function optimalSleep(){ const h=health(); const wake=wakeBed().wake; const need
 /* ============================================================
  * Schedule — natural-language tasks mapped onto the peak curve
  * ============================================================ */
-const SCHED='peak_schedule_sa_v1'; let planOpen=false;  // standalone uses its OWN key so it never reads the main app's polluted schedule (localStorage is shared per-domain)
+const SCHED='peak_schedule_v1'; let planOpen=false;
 /* Baked schedule shipped from Schedule Lab — the day's template. SCHED_SEED is
  * bumped every time a new schedule is shipped, so a fresh ship overrides any
  * stale saved tasks once (the file is the source of truth, like the style),
@@ -818,21 +820,39 @@ try{ localStorage.removeItem('peak_sched_style_v1'); }catch(e){}
  * theme (peak_theme_v1) is an explicit, user-chosen OVERRIDE that wins until
  * they reset. (Different from the old auto Send-to-Peak key we still nuke.) */
 const PEAK_THEME='peak_theme_v1';
-function loadTheme(){ try{ const t=JSON.parse(localStorage.getItem(PEAK_THEME)||'null'); return (t&&(t.style||t.bg))?t:null; }catch(e){ return null; } }
+function loadTheme(){ try{ const t=JSON.parse(localStorage.getItem(PEAK_THEME)||'null'); return (t&&(t.style||t.bg||t.graph))?t:null; }catch(e){ return null; } }
+/* the energy-curve look — defaults to the shipped "stepped area" design; a pasted
+ * Graph Lab code (lab:'graph') overrides any of: color, line, glow, variant, height-color. */
+function graphStyle(){ const t=loadTheme(); const g=(t&&t.graph)||{};
+  return { color:(typeof g.color==='string'&&g.color)?g.color:'#E9EFE9', line:(g.line!=null?+g.line:3), glow:(g.glow!==false), variant:String(g.variant||'stepped area').toLowerCase(), heightColor:(g.heightColor!=null?!!g.heightColor:true), hiC:g.hiC||'#6EE7B7', loC:g.loC||'#EF4444' }; }
 function schedStyle(){ const t=loadTheme(); const s=Object.assign({},SCHED_STYLE_DEFAULT,(t&&t.style)||{}); s.diff=Object.assign({},SCHED_STYLE_DEFAULT.diff,(t&&t.style&&t.style.diff)||{}); return s; }
 function graphColor(){ const c=schedStyle().acc; return (typeof c==='string'&&c)?c:'#34D399'; }   // the energy-curve line/area/dot color = the theme accent
 function applyThemeBg(){ const t=loadTheme(); const r=document.documentElement; if(t&&t.bg){ r.style.setProperty('--bg',t.bg); } else { r.style.removeProperty('--bg'); } }
 /* PEAK-THEME:<base64 json> → {style, bg, tasks?}. Returns true on success. */
+function normGraph(c){ return { color:c.color||null, line:(c.line!=null?+c.line:null), glow:(c.glow!==false), variant:c.variant||c.animate||'line', heightColor:!!c.heightColor, hiC:c.hiC||null, loC:c.loC||null }; }
 function importThemeCode(code){ try{
-    let s=String(code||'').trim().replace(/^PEAK-?THEME:?/i,'').trim(); if(!s)return false;
-    const cfg=JSON.parse(decodeURIComponent(escape(atob(s))));
-    if(!cfg||(!cfg.style&&!cfg.bg&&!cfg.tasks))return false;
-    localStorage.setItem(PEAK_THEME, JSON.stringify({v:1, style:cfg.style||{}, bg:cfg.bg||null}));
-    if(Array.isArray(cfg.tasks)&&cfg.tasks.length && confirm('Also replace your schedule with the creator’s tasks?')){
-      const tasks=cfg.tasks.map(t=>({ id:t.id||('k_'+Math.random().toString(36).slice(2,8)), label:t.label||t.name||'Task', start:t.start, end:t.end, durH:t.durH||((t.end!=null&&t.start!=null)?t.end-t.start:1), color:t.color, icon:t.icon, diff:t.diff||'med', locked:(t.locked!=null?!!t.locked:!!t.explicit), explicit:(t.explicit!=null?!!t.explicit:(t.start!=null)), gap:!!t.gap, size:t.size, rStart:(t.rStart!=null?t.rStart:null), rEnd:(t.rEnd!=null?t.rEnd:null) }));
-      saveSched(tasks);
+    let raw=String(code||'').trim(); if(!raw)return false;
+    // 1) Schedule Lab theme (base64): graph color + background + card style + tasks
+    if(/^PEAK-?THEME:/i.test(raw)){
+      const cfg=JSON.parse(decodeURIComponent(escape(atob(raw.replace(/^PEAK-?THEME:?/i,'').trim()))));
+      if(!cfg||(!cfg.style&&!cfg.bg&&!cfg.tasks))return false;
+      const t=loadTheme()||{v:1}; t.style=cfg.style||{}; t.bg=cfg.bg||null; localStorage.setItem(PEAK_THEME, JSON.stringify(t));
+      if(Array.isArray(cfg.tasks)&&cfg.tasks.length && confirm('Also replace your schedule with the creator’s tasks?')){
+        const tasks=cfg.tasks.map(t2=>({ id:t2.id||('k_'+Math.random().toString(36).slice(2,8)), label:t2.label||t2.name||'Task', start:t2.start, end:t2.end, durH:t2.durH||((t2.end!=null&&t2.start!=null)?t2.end-t2.start:1), color:t2.color, icon:t2.icon, diff:t2.diff||'med', locked:(t2.locked!=null?!!t2.locked:!!t2.explicit), explicit:(t2.explicit!=null?!!t2.explicit:(t2.start!=null)), gap:!!t2.gap, size:t2.size, rStart:(t2.rStart!=null?t2.rStart:null), rEnd:(t2.rEnd!=null?t2.rEnd:null) }));
+        saveSched(tasks);
+      }
+      applyThemeBg(); render(); return true;
     }
-    applyThemeBg(); render(); return true;
+    // 2) Graph Lab / Text Lab code: a JSON object (optionally after a plain-English line)
+    const m=raw.match(/\{[\s\S]*\}/);
+    if(m){ const cfg=JSON.parse(m[0]);
+      if(cfg&&cfg.lab==='graph'){ const t=loadTheme()||{v:1}; t.graph=normGraph(cfg);
+        const v=String(cfg.variant||cfg.animate||'').toLowerCase(); chartType=/bars?/.test(v)?'bars':(/stack/.test(v)?'stack':'line');
+        localStorage.setItem(PEAK_THEME, JSON.stringify(t)); render(); return true; }
+      if(cfg&&cfg.lab==='text'){ alert('That’s a Text Lab design (title animations) — it doesn’t style the energy graph.'); return false; }
+      if(cfg&&(cfg.style||cfg.bg)){ const t=loadTheme()||{v:1}; if(cfg.style)t.style=cfg.style; if(cfg.bg!=null)t.bg=cfg.bg; localStorage.setItem(PEAK_THEME, JSON.stringify(t)); applyThemeBg(); render(); return true; }
+    }
+    return false;
   }catch(e){ return false; } }
 function resetTheme(){ try{ localStorage.removeItem(PEAK_THEME); }catch(e){} document.documentElement.style.removeProperty('--bg'); render(); }
 let themeOpen=false;
@@ -1098,8 +1118,8 @@ function scheduleHtml(){
   const _hasTheme=!!loadTheme();
   const themeBlock='<div class="schTheme">'
     +'<button class="schThemeToggle'+(themeOpen?' on':'')+(_hasTheme?' active':'')+'" data-themeimport="1">🎨 '+(_hasTheme?'Creator theme active':'Import a creator theme')+'</button>'
-    +(themeOpen?'<div class="schThemeRow"><input id="themeCode" class="schThemeIn" placeholder="Paste a PEAK-THEME… code" autocomplete="off"><button class="schThemeApply" data-themeapply="1">Apply</button></div>'
-      +'<div class="schThemeHint">A creator shares a code; pasting it sets the graph color, background &amp; card style'+(_hasTheme?' <button class="schThemeReset" data-themereset="1">· reset to default</button>':'')+'</div>':'')
+    +(themeOpen?'<div class="schThemeRow"><textarea id="themeCode" class="schThemeIn" placeholder="Paste a theme or graph code…" rows="2" autocomplete="off"></textarea><button class="schThemeApply" data-themeapply="1">Apply</button></div>'
+      +'<div class="schThemeHint">Paste a Schedule Lab <b>theme code</b> (color, background, cards) or a Graph Lab <b>graph code</b> (bars, stepped, dotted, glow)'+(_hasTheme?' <button class="schThemeReset" data-themereset="1">· reset to default</button>':'')+'</div>':'')
     +'</div>';
   const input='<div class="schInputRow"><input id="schInput" class="schInput" placeholder="e.g. school 8-2, gym 1930 hard, gap claude" autocomplete="off"><button class="schAdd" data-addsched="1">＋ Add</button></div><div class="schHint">fixed task = give a time (9-11) · “big gap claude” fills your whole free day · “small gap homework” fills only the short windows between tasks · gaps never touch sleep · easy/medium/hard = color <span style="opacity:.6">· build '+SCHED_SEED+'</span></div>'+themeBlock;
   // workout nudge: you've trained recently but not today
@@ -1150,35 +1170,42 @@ function smoothPath(pts){
   for(let i=1;i<pts.length;i++){ const p0=pts[i-1],p1=pts[i]; const cx=(p0[0]+p1[0])/2; d+=' C'+cx.toFixed(1)+' '+p0[1].toFixed(1)+' '+cx.toFixed(1)+' '+p1[1].toFixed(1)+' '+p1[0].toFixed(1)+' '+p1[1].toFixed(1); }
   return d;
 }
+// stepped path (Graph Lab "stepped area" look): hold each level, then step to the next
+function stepPath(pts){ if(!pts.length)return ''; let d='M'+pts[0][0].toFixed(1)+' '+pts[0][1].toFixed(1);
+  for(let i=1;i<pts.length;i++){ d+=' L'+pts[i][0].toFixed(1)+' '+pts[i-1][1].toFixed(1)+' L'+pts[i][0].toFixed(1)+' '+pts[i][1].toFixed(1); } return d; }
 function gridLines(){ let g=''; for(let i=1;i<=3;i++){ const y=PADT+(i/4)*(CH-PADT-PADB); g+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+CW+'" y2="'+y.toFixed(1)+'" stroke="rgba(255,255,255,.05)" stroke-dasharray="2 5"/>'; } return g; }
 function nowMarker(){ const t=nowT(); const x=xOf(t); return '<line x1="'+x.toFixed(1)+'" y1="0" x2="'+x.toFixed(1)+'" y2="'+(CH-PADB)+'" stroke="rgba(255,255,255,.18)" stroke-dasharray="3 4"/>'; }
 function sleepMarkers(){ const {bed,wake}=optimalSleep();
   const line=(t,col)=>{ const x=xOf(t); return '<line x1="'+x.toFixed(1)+'" y1="0" x2="'+x.toFixed(1)+'" y2="'+(CH-PADB)+'" stroke="'+col+'" stroke-width="1.2" stroke-dasharray="1 5" opacity=".6"/>'; };
   return line(bed,'#6EE7B7')+line(wake,'#FBBF24'); }
 function chartSvg(){
-  const gc=graphColor(), gcShadow=toRGBA(gc,.7);   // energy-curve color follows the theme accent
+  const G=graphStyle();                              // imported Graph Lab design (or shipped default)
+  const gc=G.color, lw=G.line;
+  const glowS=G.glow?(' style="filter:drop-shadow(0 0 6px '+toRGBA(gc,.85)+')"'):'';
+  const stepped=/step/.test(G.variant), dotted=/dot|dash/.test(G.variant), noArea=/line only|sparkline/.test(G.variant);
+  const areaFill=G.heightColor?'url(#hgrad)':'url(#area)';
   const defs='<defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+gc+'" stop-opacity=".34"/><stop offset="100%" stop-color="'+gc+'" stop-opacity="0"/></linearGradient>'
-    +'<linearGradient id="caf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FBBF24" stop-opacity=".4"/><stop offset="100%" stop-color="#FBBF24" stop-opacity=".02"/></linearGradient></defs>';
+    +'<linearGradient id="caf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FBBF24" stop-opacity=".4"/><stop offset="100%" stop-color="#FBBF24" stop-opacity=".02"/></linearGradient>'
+    +'<linearGradient id="hgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+G.hiC+'" stop-opacity=".55"/><stop offset="55%" stop-color="#C8A24B" stop-opacity=".2"/><stop offset="100%" stop-color="'+G.loC+'" stop-opacity=".16"/></linearGradient></defs>';
   let body='';
   if(chartType==='bars'){
     const n=24, bw=CW/n*0.62;
     for(let h=0;h<n;h++){ const v=energyAt(h+0.5).e; const x=xOf(h+0.5)-bw/2, y=yOf(v); const isNow=Math.floor(nowT())===h;
       body+='<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+(CH-PADB-y).toFixed(1)+'" rx="3" fill="'+(isNow?'#FBBF24':gc)+'" opacity="'+(isNow?'.9':'.55')+'"/>'; }
   } else if(chartType==='stack'){
-    // base = your energy without caffeine (theme color); total line = with caffeine (amber).
-    // Caffeine can now go negative (the crash), so we just draw both lines + base area.
+    // base = your energy without caffeine; total line = with caffeine (amber).
     const baseP=CURVE.map(p=>[xOf(p.t),yOf(p.base)]);
     const totP=CURVE.map(p=>[xOf(p.t),yOf(p.e)]);
-    const baseLine=smoothPath(baseP);
-    const totLine=smoothPath(totP);
+    const baseLine=smoothPath(baseP), totLine=smoothPath(totP);
     body+='<path d="'+baseLine+' L'+CW+' '+(CH-PADB)+' L0 '+(CH-PADB)+' Z" fill="url(#area)"/>';
     body+='<path d="'+baseLine+'" fill="none" stroke="'+gc+'" stroke-width="2" stroke-dasharray="4 4" opacity=".8" style="filter:drop-shadow(0 0 3px '+toRGBA(gc,.5)+')"/>';
     body+='<path d="'+totLine+'" fill="none" stroke="#FBBF24" stroke-width="2.2" stroke-linecap="round" style="filter:drop-shadow(0 0 5px rgba(251,191,36,.6))"/>';
   } else {
+    // LINE view — color/width/glow/stepped/dotted/height-color all from the graph style
     const pts=CURVE.map(p=>[xOf(p.t),yOf(p.e)]);
-    const line=smoothPath(pts);
-    body+='<path d="'+line+' L'+CW+' '+(CH-PADB)+' L0 '+(CH-PADB)+' Z" fill="url(#area)"/>';
-    body+='<path d="'+line+'" fill="none" stroke="'+gc+'" stroke-width="2.4" stroke-linecap="round" style="filter:drop-shadow(0 0 5px '+gcShadow+')"/>';
+    const dpath=stepped?stepPath(pts):smoothPath(pts);
+    if(!noArea) body+='<path d="'+dpath+' L'+CW+' '+(CH-PADB)+' L0 '+(CH-PADB)+' Z" fill="'+areaFill+'"/>';
+    body+='<path d="'+dpath+'" fill="none" stroke="'+gc+'" stroke-width="'+lw+'" '+(dotted?'stroke-dasharray="1 9" ':'')+'stroke-linejoin="round" stroke-linecap="round"'+glowS+'/>';
   }
   // peak marker dot
   let pk='';
@@ -1730,7 +1757,21 @@ setInterval(tickCountdowns, 1000); // live countdowns (now-running / free / bedt
 }catch(e){} })();
 </script>
 <script>
-/* brand.js (inlined for standalone) — swaps the baked "Liam" wordmark for the saved profile name. */
+/* brand.js (inlined for standalone) */
+/* ============================================================
+ * brand.js — the suite wordmark = the CURRENT USER'S name.
+ *
+ * Every page ships with the literal wordmark "Liam" (titles, the
+ * "← back" links, the live tickers, aria-labels). This swaps that
+ * wordmark for the name saved in the onboarding profile
+ * (patron_profile_v1), falling back to "Dashboard" until one is set.
+ *
+ * It runs on load AND re-applies after the page's own JS re-renders
+ * (via a MutationObserver), so JS-built markup stays branded too.
+ * If the user's name actually IS "Liam", it's a no-op.
+ *
+ * Include once per page, anywhere after <body> opens (we add it last).
+ * ============================================================ */
 (function () {
   var WORDMARK = 'Liam'; // the literal baked into every page's markup
   function brand() {
@@ -1792,6 +1833,5 @@ setInterval(tickCountdowns, 1000); // live countdowns (now-running / free / bedt
   });
 })();
 </script>
-
 </body>
 </html>
