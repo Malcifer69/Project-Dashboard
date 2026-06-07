@@ -180,8 +180,14 @@ body{ background:var(--bg); color:var(--fg); font-family:var(--ui); -webkit-font
 .schBand.gap{ opacity:.92; }
 .schPill{ position:absolute; transform:translateX(-50%); display:inline-flex; align-items:center; gap:7px; white-space:nowrap; pointer-events:auto; cursor:grab; touch-action:none; transition:left .12s var(--ease); z-index:4; max-width:160px; }
 .schPill.top{ top:10px; } .schPill.bottom{ bottom:calc(6% + 8px); } .schPill.mid{ top:46%; transform:translate(-50%,-50%); }
-.schPill .pillNm{ font-family:var(--serif); font-style:italic; font-size:14px; letter-spacing:.01em; color:var(--fg); overflow:hidden; text-overflow:ellipsis; }
+.schPill .pillNm{ font-family:var(--serif); font-style:italic; font-size:14px; letter-spacing:.01em; color:var(--fg); overflow:hidden; text-overflow:ellipsis; max-width:96px; }
 .schPill .pillDur{ font-family:var(--mono); font-size:9px; opacity:.6; }
+.schPill .pillNo{ display:inline-grid; place-items:center; min-width:15px; height:15px; padding:0 3px; border-radius:7px; font-family:var(--mono); font-size:9px; font-weight:700; color:#fff; background:rgba(0,0,0,.5); flex:none; }
+.schPill.solid .pillNo{ background:rgba(0,0,0,.32); }
+.schPill .pillIc{ font-size:12px; opacity:.9; flex:none; }
+.schPill .pillTm{ font-family:var(--mono); font-size:9px; opacity:.72; letter-spacing:.01em; flex:none; }
+.schPill.solid .pillTm{ color:#04140e; opacity:.75; }
+.schPill.movable{ cursor:grab; } .schPill.locked{ cursor:default; }
 .schPill .pillGrip{ font-family:var(--mono); font-style:normal; font-size:9px; color:var(--muted); }
 .schPill.glass{ background:rgba(255,255,255,.07); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.16); padding:5px 11px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.35); }
 .schPill.solid{ background:var(--pc); padding:5px 11px; border-radius:10px; } .schPill.solid .pillNm{ color:#04140e; } .schPill.solid .pillDur{ color:#04140e; opacity:.7; }
@@ -752,7 +758,8 @@ function segColor(t,i){ const s=schedStyle();
   if(s.colorMode==='accent')return s.acc;
   if(s.colorMode==='auto'){ const pal=['#6EE7B7','#F59E0B','#EC4899','#22D3EE','#A78BFA','#FB7185','#FBBF24','#34D399','#60A5FA','#F472B6']; return pal[(i||0)%pal.length]; }
   if(s.colorMode==='value'||s.colorMode==='readiness'){ const A=hex2rgb('#EF4444'),B=hex2rgb('#6EE7B7'),k=clamp(energyAt((t.start+t.end)/2).e/100,0,1); return 'rgb('+[0,1,2].map(j=>Math.round(A[j]+(B[j]-A[j])*k)).join(',')+')'; }
-  return diffColor(t.diff); }
+  if(s.colorMode==='difficulty')return diffColor(t.diff);
+  return t.color || diffColor(t.diff); }   // 'task' = each task's own color (from the Lab)
 function pClock(h,m,ap){ h=+h; m=m?+m:0; if(ap){ ap=ap.toLowerCase(); if(ap[0]==='p'&&h<12)h+=12; if(ap[0]==='a'&&h===12)h=0; } return h+m/60; }
 function parseTask(str){
   const gm=str.match(/^\s*(small|big)?\s*gap\b/i);
@@ -790,10 +797,10 @@ function freeWithin(a,b,occupied){ let segs=[[a,b]];
 /* expand the raw items (fixed tasks + gap rules) into the actual timeline segments:
  * gaps fill free time and split around fixed tasks (and earlier gaps). */
 function effectiveSegments(){ const items=loadSched(); const {wake,bed}=wakeBed(); const SMALL_MAX=1.5;
-  const fixed=items.filter(t=>!t.gap).map(t=>({id:t.id,label:t.label,diff:t.diff,start:t.start,end:t.end,gap:false,ruleId:t.id,explicit:t.explicit,locked:(t.locked!=null?!!t.locked:!!t.explicit)}));
+  const fixed=items.filter(t=>!t.gap).map(t=>({id:t.id,label:t.label,diff:t.diff,start:t.start,end:t.end,gap:false,ruleId:t.id,explicit:t.explicit,locked:(t.locked!=null?!!t.locked:!!t.explicit),color:t.color,icon:t.icon}));
   const occupied=fixed.map(f=>({start:f.start,end:f.end})); const segs=fixed.slice();
   function fill(rule,onlySmall){ const a=Math.max(rule.rStart!=null?rule.rStart:wake,wake), b=Math.min(rule.rEnd!=null?rule.rEnd:bed,bed);
-    freeWithin(a,b,occupied).forEach(g=>{ if(onlySmall&&(g[1]-g[0])>SMALL_MAX)return; const seg={id:rule.id+'_'+occupied.length,label:rule.label,diff:rule.diff,start:g[0],end:g[1],gap:true,ruleId:rule.id}; segs.push(seg); occupied.push({start:g[0],end:g[1]}); }); }
+    freeWithin(a,b,occupied).forEach(g=>{ if(onlySmall&&(g[1]-g[0])>SMALL_MAX)return; const seg={id:rule.id+'_'+occupied.length,label:rule.label,diff:rule.diff,start:g[0],end:g[1],gap:true,ruleId:rule.id,color:rule.color,icon:rule.icon}; segs.push(seg); occupied.push({start:g[0],end:g[1]}); }); }
   items.filter(t=>t.gap&&t.size==='small').forEach(r=>fill(r,true));  // small gaps grab the short windows first
   items.filter(t=>t.gap&&t.size!=='small').forEach(r=>fill(r,false)); // big gaps fill everything left
   return segs.sort((a,b)=>a.start-b.start);
@@ -873,15 +880,22 @@ function tickCountdowns(){ const now=Date.now(); document.querySelectorAll('[dat
  * can use gradients, radius, side borders + glass pills exactly like Schedule Lab. */
 function taskBands(){ return ''; }
 function pillDur(t){ const d=t.end-t.start, hh=Math.floor(d), mm=Math.round((d-hh)*60); return (hh?hh+'h':'')+(mm?mm+'m':''); }
+function fmtClk(h){ h=((h%24)+24)%24; let H=Math.floor(h), m=Math.round((h-H)*60); if(m===60){H++;m=0;} const ap=H<12?'am':'pm'; let hr=H%12; if(hr===0)hr=12; return hr+(m?':'+String(m).padStart(2,'0'):'')+ap; }
+function fmtRange(a,b){ let A=fmtClk(a),B=fmtClk(b); if(A.slice(-2)===B.slice(-2))A=A.slice(0,-2); return A+'–'+B; }
 function schOverlayHtml(){ const s=schedStyle(); const segs=effectiveSegments(); if(!segs.length)return '';
-  const bottomPct=(PADB/CH*100).toFixed(2);
-  return segs.map((t,i)=>{ const x0=(t.start/24*100), w=((t.end-t.start)/24*100); const col=segColor(t,i); const op=s.op*(t.gap?0.55:1);
+  const bottomPct=(PADB/CH*100).toFixed(2); let no=0;
+  return segs.map((t)=>{ const isTask=!t.gap; if(isTask)no++;
+    const x0=(t.start/24*100), w=((t.end-t.start)/24*100); const col=segColor(t, isTask?(no-1):0); const op=s.op*(t.gap?0.55:1);
     let bg; if(s.fill==='solid')bg=toRGBA(col,op); else if(s.fill==='grad')bg='linear-gradient(to top,'+toRGBA(col,0)+','+toRGBA(col,Math.min(0.9,op*1.6))+')'; else bg='transparent';
     const band='<div class="schBand'+(s.bd?' bd':'')+(t.gap?' gap':'')+'" style="left:'+x0.toFixed(2)+'%;width:'+w.toFixed(2)+'%;bottom:'+bottomPct+'%;background:'+bg+';border-radius:'+s.rad+'px '+s.rad+'px 0 0;--bc:'+toRGBA(col,.5)+'"></div>';
     const center=clamp((t.start+t.end)/2/24*100,7,93);
-    const durHtml=(s.dur&&!t.gap)?'<span class="pillDur">'+pillDur(t)+'</span>':'';
-    const pill='<div class="schPill '+s.pill+' '+s.pos+(t.gap?' gap':(t.locked?' locked':''))+'"'+(t.gap?'':' data-taskid="'+t.id+'"')+' style="left:'+center.toFixed(2)+'%;--pc:'+col+'"><span class="pillNm">'+esc(keyword(t.label))+'</span>'+durHtml+((t.gap||t.locked)?'':'<span class="pillGrip">⠿</span>')+'</div>';
-    const lock=t.gap?'':'<button class="schLock'+(t.locked?' on':'')+'" data-lock="'+t.id+'" style="left:'+center.toFixed(2)+'%;bottom:calc('+bottomPct+'% + 6px)" title="'+(t.locked?'Locked — click to unlock & drag':'Movable — click to lock at this time')+'">'+(t.locked?'🔒':'🔓')+'</button>';
+    let inner=''; if(isTask)inner+='<span class="pillNo">'+no+'</span>';
+    if(s.icon&&t.icon)inner+='<span class="pillIc">'+esc(t.icon)+'</span>';
+    inner+='<span class="pillNm">'+esc(keyword(t.label))+'</span>';
+    if(s.dur&&isTask)inner+='<span class="pillTm">'+fmtRange(t.start,t.end)+'</span>';     // fitted time-range, e.g. 6–8am
+    else if(s.dur&&!isTask)inner+='<span class="pillDur">'+pillDur(t)+'</span>';
+    const pill='<div class="schPill '+s.pill+' '+s.pos+(t.gap?' gap':(t.locked?' locked':' movable'))+'"'+(t.gap?'':' data-taskid="'+t.id+'"')+' style="left:'+center.toFixed(2)+'%;--pc:'+col+'">'+inner+((t.gap||t.locked)?'':'<span class="pillGrip">⠿</span>')+'</div>';
+    const lock=t.gap?'':'<button class="schLock'+(t.locked?' on':'')+'" data-lock="'+t.id+'" style="left:'+center.toFixed(2)+'%;bottom:calc('+bottomPct+'% + 6px)" title="'+(t.locked?'Locked at '+fmtRange(t.start,t.end)+' — click to unlock & drag':'Movable — click to lock at this time')+'">'+(t.locked?'🔒':'🔓')+'</button>';
     return band+pill+lock;
   }).join(''); }
 function keyword(label){ return String(label).trim().split(/\s+/).slice(0,2).join(' ').slice(0,16); }
@@ -892,8 +906,8 @@ function bindTaskDrag(){ const wrap=document.getElementById('chartWrap'), svg=do
   wrap.querySelectorAll('.schPill[data-taskid]').forEach(el=>{ el.addEventListener('pointerdown',e=>{
     e.preventDefault(); const id=el.dataset.taskid; const tasks=loadSched(); const t=tasks.find(x=>x.id===id); if(!t)return;
     if(t.locked!=null?t.locked:t.explicit){ return; } // locked tasks stay put — unlock to drag
-    const dur=taskDur(t); const others=tasks.filter(x=>!x.gap&&x.id!==id); const r=svg.getBoundingClientRect(); el.classList.add('dragging'); let ns=t.start;
-    function move(ev){ if(ev.cancelable)ev.preventDefault(); const x=clamp(((ev.touches?ev.touches[0].clientX:ev.clientX)-r.left)/r.width,0,1); let st=x*24-dur/2; ns=snapFree(st,dur,others); el.style.left=clamp(((ns+dur/2)/24)*100,7,93)+'%'; }
+    const dur=taskDur(t); const others=tasks.filter(x=>!x.gap&&x.id!==id); const r=svg.getBoundingClientRect(); el.classList.add('dragging'); let ns=t.start; const tm=el.querySelector('.pillTm');
+    function move(ev){ if(ev.cancelable)ev.preventDefault(); const x=clamp(((ev.touches?ev.touches[0].clientX:ev.clientX)-r.left)/r.width,0,1); let st=x*24-dur/2; ns=snapFree(st,dur,others); el.style.left=clamp(((ns+dur/2)/24)*100,7,93)+'%'; if(tm)tm.textContent=fmtRange(ns,ns+dur); }
     function up(){ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); document.removeEventListener('touchmove',move); document.removeEventListener('touchend',up); el.classList.remove('dragging'); t.start=ns; t.end=Math.min(24,ns+dur); t.durH=dur; t.explicit=true; tasks.sort((a,b)=>a.start-b.start); saveSched(tasks); }
     document.addEventListener('pointermove',move); document.addEventListener('pointerup',up);
     document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',up);

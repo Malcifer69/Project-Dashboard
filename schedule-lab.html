@@ -983,10 +983,27 @@ window.addEventListener('resize', function(){ drawBands(); });
  * renders your schedule with this exact style. Same key the baked default in
  * peak.html falls back to — so this overrides it live, no redeploy needed.
  * "Copy config" gives you the JSON to paste in as the new baked default. */
-function fullCfg(){ return { fill:S.fill, op:S.op, rad:S.rad, colorMode:S.colorMode, acc:S.acc, pill:S.pill, pos:S.pos, bd:S.bd, icon:S.icon, dur:S.dur, now:S.now, valcol:S.valcol, diff:{ easy:DIFF.easy, med:DIFF.med, hard:DIFF.hard } }; }
+// Style only (the visual knobs) — for the SCHED_STYLE_DEFAULT bake-in path.
+function styleCfg(){ return { fill:S.fill, op:S.op, rad:S.rad, colorMode:S.colorMode, acc:S.acc, pill:S.pill, pos:S.pos, bd:S.bd, icon:S.icon, dur:S.dur, now:S.now, valcol:S.valcol, diff:{ easy:DIFF.easy, med:DIFF.med, hard:DIFF.hard } }; }
+// EVERYTHING — the full Schedule Lab snapshot: style + every task (name, time,
+// color, icon, difficulty, lock, gap rules). This is what travels to Peak.
+function fullCfg(){ return { v:2, style:styleCfg(), wake:WAKE, tasks:TASKS.map(function(t){ return {
+  id:t.id, name:t.name, start:(t.start==null?null:t.start), end:(t.end==null?null:t.end), durH:t.durH||null,
+  color:t.color||null, icon:t.icon||null, diff:t.diff||'med', locked:!!t.locked, gap:!!t.gap, size:t.size||null,
+  rStart:(t.rStart==null?null:t.rStart), rEnd:(t.rEnd==null?null:t.rEnd), explicit:!!t.explicit, fill:!!t.fill }; }) }; }
 function labToast(msg){ var t=document.getElementById('labToast'); if(!t){ t=document.createElement('div'); t.id='labToast'; t.className='labToast'; document.body.appendChild(t); } t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){ t.classList.remove('show'); },2600); }
-document.getElementById('sendPeak').addEventListener('click',function(){ try{ localStorage.setItem('peak_sched_style_v1', JSON.stringify(fullCfg())); labToast('✓ Sent to Peak — open the Peak tracker to see it'); }catch(e){ labToast('Could not save — storage blocked'); } });
-document.getElementById('copyCfg').addEventListener('click',function(){ var json=JSON.stringify(fullCfg()); function done(){ labToast('✓ Config copied — paste as SCHED_STYLE_DEFAULT in peak.html'); } if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(json).then(done,function(){ window.prompt('Copy this config:', json); }); } else { window.prompt('Copy this config:', json); } });
+document.getElementById('sendPeak').addEventListener('click',function(){
+  try{
+    var cfg=fullCfg();
+    localStorage.setItem('peak_sched_style_v1', JSON.stringify(cfg.style));   // the visual style
+    var d=new Date(); var dk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    // write the whole schedule into Peak's own store (label = name, carries color/icon/lock)
+    var ptasks=cfg.tasks.map(function(t){ return { id:t.id, label:t.name, diff:t.diff, start:t.start, end:t.end, durH:t.durH, color:t.color, icon:t.icon, locked:t.locked, gap:t.gap, size:t.size, rStart:t.rStart, rEnd:t.rEnd, explicit:t.explicit, fill:t.fill }; });
+    localStorage.setItem('peak_schedule_v1', JSON.stringify({ day:dk, tasks:ptasks, fromLab:true }));
+    labToast('✓ Sent your whole schedule + style to Peak — open Peak & refresh');
+  }catch(e){ labToast('Could not save — storage blocked'); }
+});
+document.getElementById('copyCfg').addEventListener('click',function(){ var json=JSON.stringify(fullCfg()); function done(){ labToast('✓ Full schedule + style copied (JSON)'); } if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(json).then(done,function(){ window.prompt('Copy the full schedule + style:', json); }); } else { window.prompt('Copy the full schedule + style:', json); } });
 /* ---------- Download this Lab as a single standalone file ----------
  * Schedule Lab is one self-contained HTML file (all CSS + JS inline). This
  * saves a copy you can keep and double-click on any computer — no install. */
