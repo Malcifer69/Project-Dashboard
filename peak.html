@@ -775,7 +775,7 @@ const SCHED='peak_schedule_v1'; let planOpen=false;
  * stale saved tasks once (the file is the source of truth, like the style),
  * while still letting you add/drag/edit in Peak afterwards (your edits save
  * under today's key with the current seed and win until the next day or ship). */
-const SCHED_SEED='lab-2026-06-07N-SMART';
+const SCHED_SEED='lab-2026-06-07O-NOWAKE';
 const DEFAULT_SCHED=[];
 /* one-time cleanup: physically drop a schedule saved by an older build (seed
  * mismatch) so stale/overlapping tasks can't linger in localStorage. */
@@ -1193,7 +1193,7 @@ function gridLines(){ let g=''; for(let i=1;i<=3;i++){ const y=PADT+(i/4)*(CH-PA
 function nowMarker(){ const t=nowT(); const x=xOf(t); return '<line x1="'+x.toFixed(1)+'" y1="0" x2="'+x.toFixed(1)+'" y2="'+(CH-PADB)+'" stroke="rgba(255,255,255,.18)" stroke-dasharray="3 4"/>'; }
 function sleepMarkers(){ const {bed,wake}=optimalSleep();
   const line=(t,col)=>{ const x=xOf(t); return '<line x1="'+x.toFixed(1)+'" y1="0" x2="'+x.toFixed(1)+'" y2="'+(CH-PADB)+'" stroke="'+col+'" stroke-width="1.2" stroke-dasharray="1 5" opacity=".6"/>'; };
-  return line(bed,'#6EE7B7')+line(wake,'#FBBF24'); }
+  return line(bed,'#6EE7B7'); }
 function chartSvg(){
   const G=graphStyle();                              // imported Graph Lab design (or shipped default)
   const gc=G.color, lw=G.line;
@@ -1511,7 +1511,7 @@ function render(){
     +'<div class="seg">'+['line','bars','stack'].map(t=>'<button class="segBtn '+(chartType===t?'on':'')+'" data-chart="'+t+'">'+t+'</button>').join('')+'</div></div>'
     + feelBarHtml()
     +'<div class="chartWrap" id="chartWrap">'+chartSvg()
-    +'<div class="sleepMarks"><div class="sleepMark" style="left:'+clamp(sp.wake/24*100,5,95)+'%">☀️ '+clockOf(sp.wake)+'</div></div>'
+    +''
     +'<div class="schBands" id="schBands">'+schOverlayHtml()+'</div>'
     +'<div class="crashMarks">'+crashLabels+'</div>'
     +'<div class="scrubLine" id="scrubLine"></div><div class="scrubDot" id="scrubDot"></div><div class="scrubTip" id="scrubTip"></div><div class="dragTime" id="dragTime"></div></div>'
