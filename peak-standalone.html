@@ -518,7 +518,11 @@ window.PEAK_BG = (function(){
   // 10 embers
   + ".bg-embers{background:radial-gradient(circle at 50% 120%,#3a1206,#0a0402 70%)}"
   + ".bg-embers .e{background-image:radial-gradient(2px 2px at 20% 90%,#fbbf24,transparent),radial-gradient(2px 2px at 40% 95%,#f97316,transparent),radial-gradient(1.5px 1.5px at 60% 92%,#fb7185,transparent),radial-gradient(2px 2px at 80% 96%,#fbbf24,transparent),radial-gradient(1.5px 1.5px at 30% 88%,#f59e0b,transparent),radial-gradient(2px 2px at 70% 85%,#f97316,transparent);animation:pEmb 6s linear infinite}"
-  + "@keyframes pEmb{0%{transform:translateY(0);opacity:.9}100%{transform:translateY(-120%);opacity:0}}";
+  + "@keyframes pEmb{0%{transform:translateY(0);opacity:.9}100%{transform:translateY(-120%);opacity:0}}"
+  + ".bg-mountains{background:radial-gradient(120% 85% at 50% -10%,#0b1626,#03060d 60%)}"
+  + ".bg-mountains .au{background:radial-gradient(55% 40% at 50% 14%,rgba(110,231,183,.22),transparent 62%);filter:blur(34px);animation:pAur 20s ease-in-out infinite alternate}"
+  + ".bg-mountains .s{background-image:radial-gradient(1.4px 1.4px at 14% 20%,#fff,transparent),radial-gradient(1.2px 1.2px at 34% 30%,#cfe,transparent),radial-gradient(1.5px 1.5px at 58% 16%,#fff,transparent),radial-gradient(1px 1px at 72% 26%,#9cf,transparent),radial-gradient(1.4px 1.4px at 86% 22%,#fff,transparent),radial-gradient(1px 1px at 46% 12%,#fff,transparent),radial-gradient(1.2px 1.2px at 22% 40%,#fff,transparent),radial-gradient(1px 1px at 92% 36%,#ffd,transparent);animation:pTwk 4s ease-in-out infinite alternate}"
+  + ".bg-mountains .mt{inset:auto 0 0 0;height:50%}.bg-mountains .mt svg{width:100%;height:100%;display:block}";
   var LIST = [
     {id:'aurora', name:'Aurora',     html:'<div class="a"></div>'},
     {id:'stars',  name:'Starfield',  html:'<div class="s"></div><div class="s2"></div>'},
@@ -529,7 +533,8 @@ window.PEAK_BG = (function(){
     {id:'rain',   name:'Rain',       html:'<div class="r"></div>'},
     {id:'orbs',   name:'Orbs',       html:'<div class="o"></div>'},
     {id:'waves',  name:'Waves',      html:'<div class="w"></div><div class="w2"></div>'},
-    {id:'embers', name:'Embers',     html:'<div class="e"></div>'}
+    {id:'embers', name:'Embers',     html:'<div class="e"></div>'},
+    {id:'mountains', name:'Mountains', html:'<div class="au"></div><div class="s"></div><div class="mt"><svg viewBox="0 0 1600 420" preserveAspectRatio="none"><defs><linearGradient id="mtf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0d1a17" stop-opacity="0"/><stop offset="55%" stop-color="#0d1a17" stop-opacity=".55"/><stop offset="100%" stop-color="#0d1a17" stop-opacity=".95"/></linearGradient><linearGradient id="mtn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#050a09" stop-opacity=".4"/><stop offset="60%" stop-color="#050a09" stop-opacity=".95"/><stop offset="100%" stop-color="#050a09" stop-opacity="1"/></linearGradient></defs><path d="M0,300 L120,230 L210,260 L320,180 L430,220 L560,150 L680,210 L820,170 L960,220 L1100,180 L1240,240 L1380,200 L1500,250 L1600,220 L1600,420 L0,420 Z" fill="url(#mtf)"/><path d="M0,360 L100,320 L220,340 L340,290 L460,330 L590,300 L720,340 L860,310 L1000,350 L1140,310 L1280,355 L1420,320 L1540,360 L1600,340 L1600,420 L0,420 Z" fill="url(#mtn)"/></svg></div>'}
   ];
   function ensureCss(){ if(document.getElementById('peakBgCss'))return; var s=document.createElement('style'); s.id='peakBgCss'; s.textContent=CSS; document.head.appendChild(s); }
   function def(id){ for(var i=0;i<LIST.length;i++) if(LIST[i].id===id) return LIST[i]; return null; }
@@ -860,7 +865,7 @@ const SCHED='peak_schedule_v1'; let planOpen=false;
  * stale saved tasks once (the file is the source of truth, like the style),
  * while still letting you add/drag/edit in Peak afterwards (your edits save
  * under today's key with the current seed and win until the next day or ship). */
-const SCHED_SEED='lab-2026-06-07R-BGPACK';
+const SCHED_SEED='lab-2026-06-07S-MTN';
 const DEFAULT_SCHED=[];
 /* one-time cleanup: physically drop a schedule saved by an older build (seed
  * mismatch) so stale/overlapping tasks can't linger in localStorage. */
