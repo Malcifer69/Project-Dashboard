@@ -77,6 +77,34 @@ body {
 .var-meta .v-desc { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(233,236,245,0.5); text-align: right; }
 .var-size { position: absolute; top: 12px; left: 14px; font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(167,139,250,0.85); background: rgba(8,10,24,0.55); border: 1px solid rgba(167,139,250,0.3); border-radius: 999px; padding: 3px 10px; }
 
+/* ---- behaviors tab: eye animations · reminder bubbles · idle sleep ---- */
+.be-wrap { max-width: 1000px; margin: 8px auto 70px; padding: 0 24px; display: grid; gap: 26px; }
+.be-stage { position: relative; display: grid; place-items: center; min-height: 360px; }
+.be-stage canvas { width: min(46vh, 360px); height: min(46vh, 360px); display: block; cursor: grab; }
+.be-bubble {
+  position: absolute; top: 6px; left: 50%; transform: translateX(-50%) translateY(-10px); max-width: 330px;
+  background: linear-gradient(160deg, rgba(42,34,86,0.94), rgba(14,16,34,0.94)); border: 1px solid rgba(167,139,250,0.55);
+  border-radius: 16px; padding: 12px 16px; color: #eafcff; font-size: 14px; line-height: 1.45; text-align: center;
+  box-shadow: 0 16px 44px rgba(0,0,0,0.55); opacity: 0; pointer-events: none; z-index: 5;
+  transition: opacity .35s ease, transform .35s ease;
+}
+.be-bubble.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.be-bubble::after { content:''; position:absolute; left:50%; bottom:-9px; transform: translateX(-50%) rotate(45deg); width:16px; height:16px;
+  background: rgba(14,16,34,0.94); border-right:1px solid rgba(167,139,250,0.55); border-bottom:1px solid rgba(167,139,250,0.55); }
+.be-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 18px; }
+.be-panel { border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px 18px; background: rgba(255,255,255,0.02); }
+.be-panel h3 { margin: 0 0 5px; font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #a78bfa; }
+.be-panel p { margin: 0 0 13px; font-size: 12px; color: rgba(233,236,245,0.55); line-height: 1.5; }
+.be-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.be-btn { font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: .03em; color: #e9ecf5; background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 8px 14px; cursor: pointer; transition: .18s; }
+.be-btn:hover { background: rgba(167,139,250,0.22); border-color: rgba(167,139,250,0.55); }
+.be-btn.on { background: #a78bfa; color: #05060c; border-color: #a78bfa; }
+.be-input { display: flex; gap: 8px; margin-top: 4px; }
+.be-input input { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 9px 12px; color: #e9ecf5; font-size: 13px; outline: none; }
+.be-input input:focus { border-color: rgba(103,232,249,0.6); }
+.be-idle { margin-top: 12px; font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .05em; color: rgba(103,232,249,0.85); }
+
 /* ---- palette swatches (top of avatar) ---- */
 .palettes { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; gap: 12px; align-items: center; }
 .pal { width: 40px; height: 40px; border-radius: 12px; cursor: pointer; border: 2px solid rgba(255,255,255,0.15); transition: transform .15s, border-color .15s; position: relative; }
@@ -449,6 +477,7 @@ body {
     <a href="index.html" style="font-family:ui-monospace,monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(233,236,245,0.55);text-decoration:none;padding:9px 18px;border-radius:999px;border:1px solid transparent;display:inline-flex;align-items:center;transition:.2s;margin-right:6px;" onmouseover="this.style.color='#e9ecf5'" onmouseout="this.style.color='rgba(233,236,245,0.55)'">← Dashboard</a>
     <button data-tab="avatar" class="active">Avatar + Animations</button>
     <button data-tab="variants">Variants</button>
+    <button data-tab="behave">Behaviors</button>
     <button data-tab="chat">Chat Box Lab</button>
     <button data-tab="loader">Cozy Loader</button>
     <button id="autoTour" class="autoTour">▶ Auto-tour</button>
@@ -585,6 +614,71 @@ body {
       </div>
     </div>
   </div><!-- /view-variants -->
+
+  <!-- ============ VIEW: BEHAVIORS ============ -->
+  <div class="view" id="view-behave">
+    <div class="var-head">
+      <div class="name">Nova — Behaviors</div>
+      <div class="role">eye animations · reminder bubbles · idle sleep &amp; wake</div>
+    </div>
+    <div class="be-wrap">
+      <div class="be-stage">
+        <div class="be-bubble" id="beBubble"><span id="beBubbleText"></span></div>
+        <canvas id="novaBehave"></canvas>
+      </div>
+      <div class="be-panels">
+
+        <div class="be-panel">
+          <h3>Eye animations</h3>
+          <p>Drive Nova's gaze and eye expressions directly — she eases back to neutral after a few seconds.</p>
+          <div class="be-row" style="margin-bottom:8px">
+            <button class="be-btn" data-glance="left">◀ Glance</button>
+            <button class="be-btn" data-glance="right">Glance ▶</button>
+            <button class="be-btn" data-glance="up">▲ Up</button>
+            <button class="be-btn" data-glance="down">▼ Down</button>
+          </div>
+          <div class="be-row">
+            <button class="be-btn" data-eye="neutral">Neutral</button>
+            <button class="be-btn" data-eye="happy">Happy</button>
+            <button class="be-btn" data-eye="wink">Wink</button>
+            <button class="be-btn" data-eye="surprised">Wide</button>
+            <button class="be-btn" data-eye="love">Heart</button>
+            <button class="be-btn" data-eye="star">Star</button>
+          </div>
+        </div>
+
+        <div class="be-panel">
+          <h3>Reminder bubbles</h3>
+          <p>Pop a speech bubble — a friendly nudge to drink water or chase a goal you set. Nova reacts to each one.</p>
+          <div class="be-row" style="margin-bottom:10px">
+            <button class="be-btn" data-remind="0">💧 Water</button>
+            <button class="be-btn" data-remind="1">🎯 Goal</button>
+            <button class="be-btn" data-remind="2">🧘 Stretch</button>
+            <button class="be-btn" data-remind="3">🍎 Log food</button>
+            <button class="be-btn" data-remind="4">🌙 Sleep</button>
+          </div>
+          <div class="be-row" style="margin-bottom:10px">
+            <button class="be-btn" id="beAuto">▶ Auto reminders</button>
+          </div>
+          <div class="be-input">
+            <input id="beInput" type="text" placeholder="Type your own reminder…" />
+            <button class="be-btn" id="beSend">Remind</button>
+          </div>
+        </div>
+
+        <div class="be-panel">
+          <h3>Idle · sleep &amp; wake</h3>
+          <p>Leave the mouse still and Nova drifts off to sleep — closed eyes, a slow droop, drifting <i>z</i>'s. Move the mouse and she wakes with a little pop.</p>
+          <div class="be-row">
+            <button class="be-btn" id="beSleep">💤 Sleep now</button>
+            <button class="be-btn" id="beWake">☀️ Wake up</button>
+          </div>
+          <div class="be-idle" id="beIdle">Idle 0.0s — sleeps at 6.0s</div>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /view-behave -->
 
   <!-- ============ VIEW 2: CHAT BOX LAB ============ -->
   <div class="view" id="view-chat">
@@ -1088,6 +1182,7 @@ async function onUserPrompt(text) {
       const tab = btn.dataset.tab;
       document.getElementById('view-avatar').classList.toggle('active', tab === 'avatar');
       document.getElementById('view-variants').classList.toggle('active', tab === 'variants');
+      document.getElementById('view-behave').classList.toggle('active', tab === 'behave');
       document.getElementById('view-chat').classList.toggle('active', tab === 'chat');
       document.getElementById('view-loader').classList.toggle('active', tab === 'loader');
     });
@@ -1683,7 +1778,11 @@ ${revealCss()}`;
   // setPalette is returned from the factory (see the bottom of this script)
 
   const target = { x: 0, y: 0 }, cur = { x: 0, y: 0 }
-  addEventListener('pointermove', e => { target.x = (e.clientX / innerWidth - 0.5) * 2; target.y = (e.clientY / innerHeight - 0.5) * 2 })
+  addEventListener('pointermove', e => {
+    target.x = (e.clientX / innerWidth - 0.5) * 2; target.y = (e.clientY / innerHeight - 0.5) * 2
+    lastActivity = clock.getElapsedTime()
+    if (asleep) wake()                 // moving the mouse wakes Nova up
+  })
 
   function resize() {
     const s = canvas.clientWidth || 600
@@ -1708,25 +1807,42 @@ ${revealCss()}`;
   }
   // setExpression is returned from the factory (see the bottom of this script)
 
+  // ---- idle → sleep, activity → wake (Nova dozes off if left alone) ----
+  let lastActivity = 0, asleep = false, sleepEase = 0
+  let glanceX = 0, glanceY = 0, glanceT = 0
+  const IDLE_LIMIT = opts.idleSleep === false ? Infinity : (opts.idleLimit || 8)
+  function sleep() { if (asleep) return; asleep = true; setExpression('sleepy') }
+  function wake()  { if (!asleep) return; asleep = false; setExpression('surprised', 0.7) }
+  function glance(dx, dy) { glanceX = dx; glanceY = dy; glanceT = 1 }   // a quick darting eye-look that eases back
+
   const clock = new THREE.Clock(); let nextBlink = 2.5, blinkT = -1
   function frame() {
     requestAnimationFrame(frame)
     const t = clock.getElapsedTime(), dt = Math.min(clock.getDelta(), 0.05)
     if (!reduce) {
+      // idle → doze off; sleepEase blends the whole pose toward "asleep"
+      if (lastActivity === 0) lastActivity = t
+      if (!asleep && t - lastActivity > IDLE_LIMIT) sleep()
+      sleepEase += ((asleep ? 1 : 0) - sleepEase) * 0.05
+      const spin = 1 - 0.8 * sleepEase                    // rotation slows as she dozes
       cur.x += (target.x - cur.x) * 0.06; cur.y += (target.y - cur.y) * 0.06
-      avatar.rotation.y = cur.x * 0.5 + Math.sin(t * 0.25) * 0.15
+      avatar.rotation.y = cur.x * 0.5 + Math.sin(t * 0.25) * 0.15 * spin
       avatar.rotation.x = cur.y * 0.35 + Math.sin(t * 0.4) * 0.05
-      core.rotation.y = t * 0.35; core.rotation.x = Math.sin(t * 0.5) * 0.2
-      // breathe + an expression-change "pop" bounce on top
+      avatar.rotation.z = sleepEase * 0.18                // head tilts as she sleeps
+      avatar.position.y = -sleepEase * 0.16               // droops downward
+      core.rotation.y = t * 0.35 * spin; core.rotation.x = Math.sin(t * 0.5) * 0.2
+      // breathe + an expression-change "pop" bounce on top (slower, deeper when asleep)
       pop = Math.max(0, pop - dt * 2.2)
-      const breathe = 1 + Math.sin(t * 1.4) * 0.025 + pop * 0.12
+      const bsp = 1.4 - 0.85 * sleepEase
+      const breathe = 1 + Math.sin(t * bsp) * (0.025 + 0.02 * sleepEase) + pop * 0.12
       core.scale.setScalar(breathe)
-      glow.material.opacity = 0.4 + Math.sin(t * 1.4) * 0.12 + pop * 0.3
-      glow.scale.setScalar(1 + Math.sin(t * 1.4) * 0.06 + pop * 0.15)
+      glow.material.opacity = (0.4 + Math.sin(t * bsp) * 0.12 + pop * 0.3) * (1 - 0.45 * sleepEase)
+      glow.scale.setScalar(1 + Math.sin(t * bsp) * 0.06 + pop * 0.15)
       halo.rotation.y = t * 0.08
-      // pupil gaze — drifts idly and eases toward the cursor so the eyes feel alive
-      gx = Math.max(-6, Math.min(6, cur.x * 5 + Math.sin(t * 0.7) * 2))
-      gy = Math.max(-5, Math.min(5, cur.y * 4 + Math.cos(t * 0.9) * 1.5))
+      // pupil gaze — drifts idly, eases toward the cursor, plus any darting glance() nudge
+      glanceT = Math.max(0, glanceT - dt * 1.4)
+      gx = Math.max(-9, Math.min(9, cur.x * 5 + Math.sin(t * 0.7) * 2 + glanceX * glanceT))
+      gy = Math.max(-7, Math.min(7, cur.y * 4 + Math.cos(t * 0.9) * 1.5 + glanceY * glanceT))
 
       // expression rendering: a blink-through morph on every change, else idle blink + breathe
       let open = 1
@@ -1756,14 +1872,14 @@ ${revealCss()}`;
     renderer.render(scene, camera)
   }
   frame()
-  return { setExpression, setPalette, expressions: Object.keys(EXPR) }
+  return { setExpression, setPalette, sleep, wake, glance, expressions: Object.keys(EXPR) }
   } // end buildNova
 
   // mount the real Nova on the hero canvas — this is window.Nova everywhere
   window.Nova = buildNova(document.getElementById('scene'))
   // ...and mount the SAME Nova, compact, inside the chat box lab
   const _novaChatCanvas = document.getElementById('novaChat')
-  if (_novaChatCanvas) window.NovaChat = buildNova(_novaChatCanvas)
+  if (_novaChatCanvas) window.NovaChat = buildNova(_novaChatCanvas, { idleSleep: false })
 
   // ---- variant gallery: 5 Nova shapes/sizes you can browse in the Variants tab ----
   const VARIANTS = [
@@ -1775,8 +1891,64 @@ ${revealCss()}`;
   ]
   VARIANTS.forEach(v => {
     const cv = document.getElementById(v.id)
-    if (cv) buildNova(cv, { shape: v.shape, radius: v.radius, edges: true })
+    if (cv) buildNova(cv, { shape: v.shape, radius: v.radius, edges: true, idleSleep: false })
   })
+
+  // ---- Behaviors tab: live Nova + eye controls + reminder bubbles + idle countdown ----
+  const _novaBehaveCanvas = document.getElementById('novaBehave')
+  window.NovaBehave = _novaBehaveCanvas ? buildNova(_novaBehaveCanvas, { idleLimit: 6 }) : null
+  ;(function behaviors() {
+    const N = window.NovaBehave; if (!N) return
+    const bubble = document.getElementById('beBubble'), bubbleText = document.getElementById('beBubbleText')
+    let hideT = null
+    function showBubble(text, mood) {
+      bubbleText.textContent = text
+      bubble.classList.add('show')
+      if (mood) N.setExpression(mood, 4)
+      clearTimeout(hideT); hideT = setTimeout(() => bubble.classList.remove('show'), 4500)
+    }
+    // preset reminders — the kind of nudges a coach would give
+    const REMINDERS = [
+      { icon: '💧', text: 'Time to drink water — stay hydrated!',                 mood: 'happy' },
+      { icon: '🎯', text: "Your goal today: 30 min workout. You've got this.",      mood: 'star'  },
+      { icon: '🧘', text: 'Stand up and stretch for a minute.',                    mood: 'happy' },
+      { icon: '🍎', text: "Don't forget to log your lunch.",                       mood: 'neutral' },
+      { icon: '🌙', text: 'Wind down soon — aim for 8 hours of sleep tonight.',    mood: 'love'  },
+    ]
+    document.querySelectorAll('[data-remind]').forEach(b => b.addEventListener('click', () => {
+      const r = REMINDERS[+b.dataset.remind]; showBubble(r.icon + '  ' + r.text, r.mood)
+    }))
+    // custom reminder
+    const inp = document.getElementById('beInput'), sendBtn = document.getElementById('beSend')
+    sendBtn.addEventListener('click', () => { const v = inp.value.trim(); if (!v) return; showBubble('🔔  ' + v, 'happy'); inp.value = '' })
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') sendBtn.click() })
+    // auto-cycling reminders
+    let auto = null, ai = 0
+    const autoBtn = document.getElementById('beAuto')
+    autoBtn.addEventListener('click', () => {
+      if (auto) { clearInterval(auto); auto = null; autoBtn.classList.remove('on'); autoBtn.textContent = '▶ Auto reminders'; return }
+      autoBtn.classList.add('on'); autoBtn.textContent = '⏸ Auto reminders'
+      const fire = () => { const r = REMINDERS[ai++ % REMINDERS.length]; showBubble(r.icon + '  ' + r.text, r.mood) }
+      fire(); auto = setInterval(fire, 6000)
+    })
+    // eye animations + glances
+    document.querySelectorAll('[data-eye]').forEach(b => b.addEventListener('click', () => N.setExpression(b.dataset.eye, 3)))
+    document.querySelectorAll('[data-glance]').forEach(b => b.addEventListener('click', () => {
+      const d = b.dataset.glance
+      N.glance(d === 'left' ? -8 : d === 'right' ? 8 : 0, d === 'up' ? -6 : d === 'down' ? 6 : 0)
+    }))
+    // sleep / wake buttons
+    document.getElementById('beSleep').addEventListener('click', () => N.sleep())
+    document.getElementById('beWake').addEventListener('click', () => N.wake())
+    // live idle countdown (mirrors NovaBehave's 6s idle→sleep)
+    let lastMove = performance.now()
+    addEventListener('pointermove', () => { lastMove = performance.now() })
+    const meter = document.getElementById('beIdle')
+    setInterval(() => {
+      const s = (performance.now() - lastMove) / 1000
+      meter.textContent = s >= 6 ? "Nova is asleep 💤 — move your mouse to wake her" : 'Idle ' + s.toFixed(1) + 's — sleeps at 6.0s'
+    }, 100)
+  })()
   </script>
 </body>
 </html>
