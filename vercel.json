@@ -7,7 +7,7 @@
       ]
     },
     {
-      "source": "/(db|cloud-sync|theme)\\.js",
+      "source": "/(db|cloud-sync|theme|icons)\\.js",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, must-revalidate" }
       ]
